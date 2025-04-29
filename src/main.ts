@@ -2,8 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
@@ -21,9 +23,17 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
 
   await app.listen(port);
-  console.log(`Aplicação rodando na porta ${port}`);
-  console.log(
-    `Documentação Swagger disponível em: http://localhost:${port}/api`,
+
+
+  const separator = '═';
+  logger.log(separator.repeat(50));
+  logger.log(`\x1b[32m✅ SERVIDOR INICIADO COM SUCESSO!\x1b[0m`);
+  logger.log(
+    `\x1b[36m🚀 API rodando em: \x1b[33mhttp://localhost:${port}\x1b[0m`,
   );
+  logger.log(
+    `\x1b[36m📚 Swagger disponível em: \x1b[33mhttp://localhost:${port}/api\x1b[0m`,
+  );
+  logger.log(separator.repeat(50));
 }
 bootstrap();
