@@ -3,7 +3,7 @@ import axios from 'axios';
 
 @Injectable()
 export class WhatsappService {
-  private readonly apiUrl = 'http://URL-DA-SUA-API-DO-WHATSAPP'; // Trocar aqui!
+  private readonly apiUrl = 'url'; 
 
   async newInstance(dados: any) {
     const response = await axios.post(`${this.apiUrl}/router-instance`, dados);
