@@ -39,7 +39,7 @@ export class WhatsappService implements OnModuleInit {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        'apiKey': this.apiKey,
+        apiKey: this.apiKey,
       },
     });
 
@@ -211,7 +211,7 @@ export class WhatsappService implements OnModuleInit {
    */
   async connectInstance(instance: string): Promise<QrCodeConnectionDTO> {
     this.logger.log(`Connecting to WhatsApp instance: ${instance}`);
- 
+
     if (!instance) {
       throw new HttpException(
         'ID da instância é obrigatório',
@@ -325,6 +325,67 @@ export class WhatsappService implements OnModuleInit {
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to disconnect instance: ${instance}`, error);
+      throw error;
+    }
+  }
+
+  async setupWebhook(
+    instance: string,
+    url: string,
+  ): Promise<{ success: boolean }> {
+    this.logger.log(`Setting up webhook for instance: ${instance}`);
+
+    if (!instance) {
+      throw new HttpException(
+        'ID da instância é obrigatório',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!url) {
+      throw new HttpException(
+        'URL do webhook é obrigatória',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      await this.makeRequest({
+        method: 'PUT',
+        url: `/webhook/set/${instance}`,
+        data: {
+          enabled: true,
+          url: url,
+          events: {
+            qrcodeUpdated: true,
+            messagesSet: true,
+            messagesUpsert: true,
+            messagesUpdated: true,
+            sendMessage: true,
+            contactsSet: true,
+            contactsUpsert: true,
+            contactsUpdated: true,
+            chatsSet: true,
+            chatsUpsert: true,
+            chatsUpdated: true,
+            chatsDeleted: true,
+            presenceUpdated: true,
+            groupsUpsert: true,
+            groupsUpdated: true,
+            groupsParticipantsUpdated: true,
+            connectionUpdated: true,
+            statusInstance: true,
+            refreshToken: true,
+          },
+        },
+      });
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(
+        `Failed to setup webhook for instance: ${instance}`,
+        error,
+      );
       throw error;
     }
   }

@@ -3,11 +3,17 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import { json } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false, // Desativa o bodyParser para aplicar nossa própria configuração
+  });
   const configService = app.get(ConfigService);
+
+  // Aumenta o limite para 50MB
+  app.use(json({ limit: '50mb' }));
 
   // Configuração do Swagger
   const config = new DocumentBuilder()
@@ -22,8 +28,8 @@ async function bootstrap() {
   // Obtenha a porta do .env ou use 3000 como padrão
   const port = configService.get<number>('PORT', 3000);
 
+  app.enableCors();
   await app.listen(port);
-
 
   const separator = '═';
   logger.log(separator.repeat(50));

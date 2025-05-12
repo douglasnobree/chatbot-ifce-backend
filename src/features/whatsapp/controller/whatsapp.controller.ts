@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Put } from '@nestjs/common';
 import { WhatsappService } from '../service/whatsapp.service';
 import {
   ApiTags,
@@ -13,6 +13,7 @@ import {
   QrCodeConnectionDTO,
 } from '../dto/instance-response.dto';
 import { SendMessageDto } from '../dto/send-message.dto';
+import { SetupWebhookDto } from '../dto/setup-webhook.dto';
 
 @ApiTags('whatsapp')
 @Controller('whatsapp')
@@ -55,5 +56,17 @@ export class WhatsappController {
     @Param('instance') instance: string,
   ): Promise<any> {
     return this.whatsappService.sendMessage(dados, instance);
+  }
+
+  @Put('setupWebhook/:instance')
+  @ApiParam({ name: 'instance', type: String })
+  @ApiOperation({ summary: 'Configurar Webhook para instância' })
+  @ApiResponse({ status: 200, schema: { example: { success: true } } })
+  @ApiBody({ type: SetupWebhookDto })
+  setupWebhook(
+    @Param('instance') instance: string,
+    @Body() dados: SetupWebhookDto,
+  ): Promise<{ success: boolean }> {
+    return this.whatsappService.setupWebhook(instance, dados.url);
   }
 }
