@@ -3,25 +3,27 @@ import { CommandBus } from '@nestjs/cqrs';
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { HandleWebhookEventCommand } from '../commands/handlewebhook.command';
 import { WebhookEventType } from '../enums/enum';
+import { WebhookEventDto } from '../dto/webhook-event.dto';
+import { WebhookMessageDto } from '../dto/webhook-message.dto';
 
 @ApiTags('webhook')
 @Controller('webhook')
 export class WebhookController {
   constructor(private readonly commandBus: CommandBus) {}
-
   @Post()
   @ApiOperation({ summary: 'Recebe eventos de webhook do WhatsApp' })
-  @ApiBody({
+  @ApiBody({ type: WebhookEventDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Evento processado com sucesso',
     schema: {
       type: 'object',
       properties: {
-        event: { type: 'string', enum: Object.values(WebhookEventType) },
-        data: { type: 'object' },
+        status: { type: 'string', example: 'success' },
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'Evento processado com sucesso' })
-  async handleWebhook(@Body() payload: { event: WebhookEventType; data: any }) {
+  async handleWebhook(@Body() payload: WebhookEventDto) {
     const { event, data } = payload;
     await this.commandBus.execute(new HandleWebhookEventCommand(event, data));
     return { status: 'success' };

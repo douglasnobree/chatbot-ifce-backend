@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo para estudantes
+model Estudante {
+  id                  String   @id @default(uuid())
+  nome                String
+  cpf                 String   @unique
+  telefone            String
+  email               String?
+  matricula           String   @unique
+  curso               String
+  last_quoted_message String? // Última mensagem citada pelo usuário
+  criado_em           DateTime @default(now())
+  atualizado_em       DateTime @updatedAt
+
+  // Relacionamentos
+  sessoes Sessao[]
+}
+
+model WhatsAppSession {
+  id              Int     @id
+  InstanceName    String  @unique @default("1")
+  numero_telefone String  @unique
+  status          Boolean
+  jwt_token       String  @unique
+}
+
+// Modelo para atendentes
+model Atendente {
+  id            String   @id @default(uuid())
+  nome          String
+  email         String   @unique
+  cargo         String?
+  departamento  String?
+  criado_em     DateTime @default(now())
+  atualizado_em DateTime @updatedAt
+
+  // Relacionamentos
+  sessoes Sessao[]
+}
+
+// Modelo para sessões de chat
+model Sessao {
+  id                 String   @id @default(uuid())
+  userId             String // ID do usuário no WhatsApp (ex: 5588999999999@s.whatsapp.net)
+  estado             String // Estado atual da sessão (ex: MAIN_MENU, CONSULTAR_MATRICULA)
+  ultima_interacao   DateTime @default(now())
+  instanceName       String // ID da instância do WhatsApp
+  esperando_resposta Boolean  @default(false)
+  criado_em          DateTime @default(now())
+  atualizado_em      DateTime @updatedAt
+
+  // Relacionamentos
+  estudante_id String?
+  estudante    Estudante? @relation(fields: [estudante_id], references: [id])
+  atendente_id String?
+  atendente    Atendente? @relation(fields: [atendente_id], references: [id])
+  mensagens    Mensagem[]
+}
+
+// Modelo para mensagens
+model Mensagem {
+  id        String   @id @default(uuid())
+  conteudo  String
+  origem    String // "USUARIO" ou "BOT"
+  timestamp DateTime @default(now())
+
+  // Relacionamentos
+  sessao_id String
+  sessao    Sessao @relation(fields: [sessao_id], references: [id])
+}

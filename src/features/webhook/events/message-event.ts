@@ -1,29 +1,163 @@
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
 import { WebhookEventTriggered } from './webhook-Triggered';
 import { WebhookEventType } from '../enums/enum';
-import { WebhookMessageDto } from '../dto/web-hook-message.dto';
+import { WhatsappMessageDto } from '../dto/whatsapp-message.dto';
 import { WhatsappService } from 'src/features/whatsapp/service/whatsapp.service';
-
-import { Cron } from '@nestjs/schedule';
+import { ChatbotService } from 'src/features/chatbot/services/chatbot.service';
+import { Logger } from '@nestjs/common';
 
 @EventsHandler(WebhookEventTriggered)
 export class MessageEventHandler
   implements IEventHandler<WebhookEventTriggered>
 {
-  private readonly SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
+  private readonly logger = new Logger(MessageEventHandler.name);
 
-  constructor(private readonly whatsAppService: WhatsappService) {}
-
+  constructor(
+    private readonly whatsAppService: WhatsappService,
+    private readonly chatbotService: ChatbotService,
+  ) {}
   async handle(event: WebhookEventTriggered) {
     const { type, data } = event;
-    console.log('Webhook event triggered:', type, data);
+    this.logger.debug(`Webhook event triggered: ${type}`);
 
-    if (type === WebhookEventType.MESSAGES_UPSERT) {
-      console.log('Received message:', data);
+    try {
+      if (type === WebhookEventType.MESSAGES_UPSERT) {
+        this.logger.log('Message upserted:', data);
+        await this.processarMensagemRecebida(data);
+      }
+
+      if (type === WebhookEventType.MESSAGES_UPDATE) {
+        this.logger.log('Message updated:', data);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Erro ao processar evento webhook: ${error.message}`,
+        error.stack,
+      );
     }
+  }
 
-    if (type === WebhookEventType.MESSAGES_UPDATE) {
-      console.log('Message updated:', data);
+  /**
+   * Processa uma mensagem recebida do WebHook
+   */
+  private async processarMensagemRecebida(data: any): Promise<void> {
+    try {
+      // Verificar se é um objeto conforme nossa estrutura atual
+      if (!data || !data.keyRemoteJid) {
+        // Formato antigo, verificar se têm mensagens
+        if (!data.messages || data.messages.length === 0) {
+          this.logger.debug('Nenhuma mensagem encontrada no evento');
+          return;
+        }
+
+        // Processamento para formato antigo
+        const mensagemWhatsapp = data.messages[0];
+        console.log('teste', mensagemWhatsapp);
+        // Ignora mensagens enviadas pelo próprio bot
+        if (mensagemWhatsapp.key.fromMe === true) {
+          this.logger.debug('Mensagem enviada pelo próprio bot, ignorando');
+          return;
+        }
+        if (data.isGroup === true) {
+          this.logger.debug('Mensagem enviada por grupo, ignorando');
+          return;
+        }
+
+        // Extrai informações da mensagem no formato antigo
+        const remetente = mensagemWhatsapp.key.remoteJid;
+        const instance = data.instance;
+        let textoMensagem = '';
+
+        if (mensagemWhatsapp.message?.conversation) {
+          textoMensagem = mensagemWhatsapp.message.conversation;
+        } else if (mensagemWhatsapp.message?.extendedTextMessage?.text) {
+          textoMensagem = mensagemWhatsapp.message.extendedTextMessage.text;
+        } else {
+          this.logger.debug('Formato de mensagem não suportado');
+          return;
+        }
+
+        // Processar a mensagem
+        if (textoMensagem && remetente) {
+          this.logger.log(
+            `Mensagem recebida de ${remetente}: ${textoMensagem}`,
+          );
+          await this.chatbotService.processMessage(
+            remetente,
+            textoMensagem,
+            instance,
+          );
+        }
+      } else {
+        // Formato novo conforme o dto WhatsappMessageDto
+
+        if (data.keyFromMe === true) {
+          this.logger.debug('Mensagem enviada pelo próprio bot, ignorando');
+          return;
+        }
+        if (data.isGroup === true) {
+          this.logger.debug('Mensagem enviada por grupo, ignorando');
+          return;
+        }
+
+        // Extrai informações da mensagem
+        const remetente = data.keyRemoteJid;
+        const instance = data.instanceId.toString();
+
+        // Verifica se a mensagem tem texto
+        let textoMensagem: string = '';
+
+        if (data.messageType === 'conversation') {
+          // Formato de mensagem simples
+          textoMensagem = data.content.text || data.content.conversation;
+        } else if (data.messageType === 'extendedTextMessage') {
+          // Formato de mensagem estendida
+          textoMensagem = data.content.text;
+        } else {
+          // Outros tipos de mensagem
+          this.logger.debug(
+            `Formato de mensagem não suportado: ${data.messageType}`,
+          );
+          return;
+        }
+
+        // Se conseguiu extrair o texto, processa a mensagem
+        if (textoMensagem && remetente) {
+          this.logger.log(
+            `Mensagem recebida de ${remetente}: ${textoMensagem}`,
+          );
+
+          // Verificar se é uma resposta a outra mensagem
+          let mensagemOriginal: string = null;
+          if (data.content?.contextInfo?.quotedMessage?.conversation) {
+            mensagemOriginal =
+              data.content.contextInfo.quotedMessage.conversation;
+            this.logger.log(`Mensagem é uma resposta a: "${mensagemOriginal}"`);
+          }
+          console.log(
+            'Resposta a:',
+            mensagemOriginal,
+            'Texto da mensagem:',
+            textoMensagem,
+            'Remetente:',
+            remetente,
+            'Instance:',
+            instance,
+          );
+          // Repassa para o serviço de chatbot processar
+          await this.chatbotService.processMessage(
+            remetente,
+            textoMensagem,
+            instance,
+            mensagemOriginal,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `Erro ao processar mensagem: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

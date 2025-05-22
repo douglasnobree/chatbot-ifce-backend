@@ -13,6 +13,9 @@ import {
   QrCodeConnectionDTO,
 } from '../dto/instance-response.dto';
 import { SendMessageDto } from '../dto/send-message.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { InstanceResponseCreateDto } from '../dto/instance-response-create.dto';
+import { SessionService } from 'src/features/chatbot/services/session.service';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -29,7 +32,11 @@ export class WhatsappService implements OnModuleInit {
   private readonly defaultTimeout = 30000; // 30 segundos
   private readonly maxRetries = 3;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private readonly PrismaService: PrismaService,
+    private readonly sessionService: SessionService,
+  ) {
     this.apiUrl = this.configService.get<string>('WHATSAPP_API_URL');
     this.apiKey = this.configService.get<string>('WHATSAPP_API_KEY');
 
@@ -153,7 +160,7 @@ export class WhatsappService implements OnModuleInit {
    * @param dados Dados da nova instância
    * @returns Detalhes da instância criada
    */
-  async newInstance(dados: NewInstanceDto): Promise<InstanceResponseDto> {
+  async newInstance(dados: NewInstanceDto): Promise<InstanceResponseCreateDto> {
     this.logger.log(`Creating new WhatsApp instance: ${dados.instanceName}`);
 
     if (!dados.instanceName) {
@@ -164,11 +171,21 @@ export class WhatsappService implements OnModuleInit {
     }
 
     try {
-      return await this.makeRequest<InstanceResponseDto>({
+      const response = await this.makeRequest<InstanceResponseCreateDto>({
         method: 'POST',
         url: '/instance/create',
         data: dados,
       });
+      await this.PrismaService.whatsAppSession.create({
+        data: {
+          id: response.id,
+          InstanceName: dados.instanceName,
+          jwt_token: response.Auth.token,
+          numero_telefone: '',
+          status: false,
+        },
+      });
+      return response;
     } catch (error) {
       this.logger.error(
         `Failed to create instance: ${dados.instanceName}`,
@@ -194,10 +211,36 @@ export class WhatsappService implements OnModuleInit {
     }
 
     try {
-      return await this.makeRequest<InstanceResponseDto>({
+      const response = await this.makeRequest<InstanceResponseDto>({
         method: 'GET',
         url: `/instance/fetchInstance/${instance}`,
       });
+      const instanceData = await this.PrismaService.whatsAppSession.findFirst({
+        where: {
+          id: response.id,
+        },
+      });
+      if (response.connectionStatus === 'ONLINE') {
+        await this.PrismaService.whatsAppSession.update({
+          where: {
+            id: response.id,
+          },
+          data: {
+            status: true,
+            numero_telefone: response.ownerJid,
+          },
+        });
+      } else {
+        await this.PrismaService.whatsAppSession.update({
+          where: {
+            id: response.id,
+          },
+          data: {
+            status: false,
+          },
+        });
+      }
+      return response;
     } catch (error) {
       this.logger.error(`Failed to fetch instance: ${instance}`, error);
       throw error;
@@ -220,10 +263,12 @@ export class WhatsappService implements OnModuleInit {
     }
 
     try {
-      return await this.makeRequest<QrCodeConnectionDTO>({
+      const response = await this.makeRequest<QrCodeConnectionDTO>({
         method: 'GET',
         url: `/instance/connect/${instance}`,
       });
+
+      return response;
     } catch (error) {
       this.logger.error(`Failed to connect to instance: ${instance}`, error);
       throw error;
@@ -243,6 +288,14 @@ export class WhatsappService implements OnModuleInit {
     this.logger.log(
       `Sending message to ${dados.number} via instance: ${instance}`,
     );
+    const responseSessionWhatsCurrent =
+      await this.sessionService.getSessionWhatsAppCurrentState();
+    if (!responseSessionWhatsCurrent) {
+      throw new HttpException(
+        'Nenhuma instância ativa encontrada',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     if (!instance) {
       throw new HttpException(
@@ -290,6 +343,25 @@ export class WhatsappService implements OnModuleInit {
       const instanceData = await this.searchInstance(instance);
       const isOnline = instanceData.connectionStatus === 'ONLINE';
       const connectionState = instanceData.Whatsapp?.connection?.state;
+      if (isOnline) {
+        await this.PrismaService.whatsAppSession.update({
+          where: {
+            id: instanceData.id,
+          },
+          data: {
+            status: true,
+          },
+        });
+      } else {
+        await this.PrismaService.whatsAppSession.update({
+          where: {
+            id: instanceData.id,
+          },
+          data: {
+            status: false,
+          },
+        });
+      }
 
       return {
         online: isOnline,
@@ -298,6 +370,24 @@ export class WhatsappService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Failed to check instance status: ${instance}`, error);
       return { online: false };
+    }
+  }
+
+  async getInstanceName() {
+    try {
+      const response = await this.PrismaService.whatsAppSession.findFirst({
+        where: {},
+      });
+      if (!response) {
+        throw new HttpException(
+          'Nenhuma instância ativa encontrada',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return { instanceName: response.InstanceName };
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -320,6 +410,14 @@ export class WhatsappService implements OnModuleInit {
       await this.makeRequest({
         method: 'DELETE',
         url: `/instance/logout/${instance}`,
+      });
+      await this.PrismaService.whatsAppSession.update({
+        where: {
+          InstanceName: instance,
+        },
+        data: {
+          status: false,
+        },
       });
 
       return { success: true };

@@ -6,16 +6,20 @@ import { WhatsappController } from './features/whatsapp/controller/whatsapp.cont
 import { WhatsappService } from './features/whatsapp/service/whatsapp.service';
 import { WebhookModule } from './features/webhook/webhook.module';
 import { AuthModule } from './features/auth/auth.module';
+import { ChatbotModule } from './features/chatbot/chatbot.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    PrismaModule,
     CqrsModule,
     ScheduleModule.forRoot(),
     WebhookModule,
     AuthModule,
+    ChatbotModule,
   ],
   controllers: [WhatsappController],
   providers: [WhatsappService],
