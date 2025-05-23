@@ -6,13 +6,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class SessionService {
   private readonly logger = new Logger(SessionService.name);
-  private readonly SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutos em milissegundos
+  private readonly SESSION_TIMEOUT = 1 * 60 * 1000; // 15 minutos em milissegundos
   private sessions: Map<string, Session> = new Map(); // Cache em memória para sessões ativas
 
-  constructor(private readonly sessionRepository: SessionRepository, private readonly prisma: PrismaService) {}
-
-  /**
-   * Obtém uma sessão existente ou cria uma nova se não existir
+  constructor(
+    private readonly sessionRepository: SessionRepository,
+    private readonly prisma: PrismaService,
+  ) {} /**
+   * Obtém uma sessão existente ou cria uma nova se não existir ou estiver expirada
    */
   async getOrCreateSession(
     userId: string,
@@ -22,8 +23,16 @@ export class SessionService {
       // Primeiro verifica no cache em memória
       let session = this.sessions.get(userId);
       console.log('session in memory', session);
+
+      // Se estiver expirada, remove do cache
+      if (session && session.state === SessionState.EXPIRED) {
+        this.sessions.delete(userId);
+        session = null;
+      }
+
       if (!session) {
-        // Se não estiver em cache, busca no banco de dados
+        // Se não estiver em cache, busca uma sessão ativa no banco de dados
+        // O repository foi modificado para retornar apenas sessões não expiradas
         session = await this.sessionRepository.getOrCreateSession(
           userId,
           instanceId,
@@ -209,34 +218,53 @@ export class SessionService {
   /**
    * Verifica e limpa sessões expiradas
    * @returns Número de sessões limpas
-   */
-  async cleanExpiredSessions(): Promise<number> {
+   */ async cleanExpiredSessions(): Promise<number> {
     try {
-      // Limpa sessões no cache em memória
+      // Marca sessões expiradas no cache em memória e no banco
       const now = Date.now();
-      let expiredCount = 0;
-
+      let expiredCount = 0; // Remove sessões expiradas do cache
       this.sessions.forEach((session, userId) => {
         if (now - session.lastInteractionTime > this.SESSION_TIMEOUT) {
           this.sessions.delete(userId);
           expiredCount++;
         }
+      }); // Marca sessões expiradas no banco de dados (não deleta)
+      // Importante: Não alteramos sessões que já estão marcadas como EXPIRED
+      const result = await this.prisma.sessao.updateMany({
+        where: {
+          ultima_interacao: {
+            lt: new Date(now - this.SESSION_TIMEOUT),
+          },
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        data: {
+          estado: SessionState.EXPIRED,
+        },
       });
 
+      const updatedCount = result.count;
       if (expiredCount > 0) {
         this.logger.log(
-          `${expiredCount} sessões expiradas foram limpas do cache`,
+          `${expiredCount} sessões expiradas foram removidas do cache`,
         );
       }
 
-      // Limpa sessões no banco de dados (mais antigas, 24 horas)
+      if (updatedCount > 0) {
+        this.logger.log(
+          `${updatedCount} sessões foram marcadas como expiradas no banco de dados`,
+        );
+      }
+
+      // Sessões mais antigas (24 horas) também são marcadas como expiradas pelo repository
       const dbExpiredCount =
         await this.sessionRepository.cleanExpiredSessions();
 
-      return expiredCount + dbExpiredCount;
+      return expiredCount + updatedCount + dbExpiredCount;
     } catch (error) {
       this.logger.error(
-        `Erro ao limpar sessões expiradas: ${error.message}`,
+        `Erro ao marcar sessões expiradas: ${error.message}`,
         error.stack,
       );
       return 0;
@@ -319,8 +347,8 @@ export class SessionService {
     }
   }
 
-  async getSessionWhatsAppCurrentState(){
-    try{
+  async getSessionWhatsAppCurrentState() {
+    try {
       const response = await this.prisma.whatsAppSession.findFirst({
         where: {
           status: true,
@@ -336,8 +364,8 @@ export class SessionService {
     }
   }
 
-  async getSessionNameById(id: number){
-    try{
+  async getSessionNameById(id: number) {
+    try {
       const response = await this.prisma.whatsAppSession.findUnique({
         where: {
           id: id,

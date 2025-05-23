@@ -89,7 +89,20 @@ export class MessageEventHandler
           );
         }
       } else {
-        // Formato novo conforme o dto WhatsappMessageDto
+        console.log('Novo formato de mensagem:', data.messageTimestamp);
+
+        if (data.messageTimestamp) {
+          const timestampMensagem = Number(data.messageTimestamp) * 1000; // Converter para milissegundos se estiver em segundos
+          const dateNow = Date.now();
+          const minutosEmMs = 3 * 60 * 1000; // 10 minutos em milissegundos
+
+          if (dateNow - timestampMensagem > minutosEmMs) {
+            this.logger.debug(
+              `Mensagem ignorada por ser muito antiga (mais de 10 minutos): ${new Date(timestampMensagem).toISOString()}`,
+            );
+            return;
+          }
+        }
 
         if (data.keyFromMe === true) {
           this.logger.debug('Mensagem enviada pelo próprio bot, ignorando');

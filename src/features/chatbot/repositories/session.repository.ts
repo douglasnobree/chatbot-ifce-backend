@@ -8,8 +8,47 @@ export class SessionRepository {
   private readonly logger = new Logger(SessionRepository.name);
 
   constructor(private readonly prisma: PrismaService) {}
-
   /**
+   * Cria uma nova sessão no banco de dados
+   */
+  async createNewSession(userId: string, instanceId: string): Promise<Session> {
+    try {
+      this.logger.log(
+        `Criando nova sessão no banco de dados para o usuário ${userId}`,
+      );
+
+      const dbSession = await this.prisma.sessao.create({
+        data: {
+          userId,
+          estado: SessionState.MAIN_MENU,
+          instanceName: instanceId,
+          esperando_resposta: false,
+        },
+        include: {
+          estudante: true,
+          atendente: true,
+          mensagens: true,
+        },
+      });
+
+      return this.mapDbSessionToSession(dbSession);
+    } catch (error) {
+      this.logger.error(
+        `Erro ao criar nova sessão: ${error.message}`,
+        error.stack,
+      );
+
+      // Em caso de erro, retorna uma sessão em memória como fallback
+      return {
+        userId,
+        state: SessionState.MAIN_MENU,
+        userData: new UserData(),
+        lastInteractionTime: Date.now(),
+        instanceId,
+        esperandoResposta: false,
+      };
+    }
+  } /**
    * Obtém uma sessão do banco de dados ou cria uma nova se não existir
    */
   async getOrCreateSession(
@@ -18,9 +57,17 @@ export class SessionRepository {
   ): Promise<Session> {
     console.log('getOrCreateSession', userId, instanceId);
     try {
-      // Busca a sessão existente
+      // Busca a sessão existente mais recente que não está expirada
       let dbSession = await this.prisma.sessao.findFirst({
-        where: { userId },
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
         include: {
           estudante: true,
           atendente: true,
@@ -33,26 +80,30 @@ export class SessionRepository {
         },
       });
 
-      // Se não existir, cria uma nova
+      // Se não existir sessão ativa (todas estão expiradas ou não existe), cria uma nova
       if (!dbSession) {
         this.logger.log(
-          `Criando nova sessão no banco de dados para o usuário ${userId}`,
+          `Nenhuma sessão ativa encontrada para o usuário ${userId}, criando uma nova`,
         );
-        dbSession = await this.prisma.sessao.create({
-          data: {
+
+        // Vamos verificar se há sessões expiradas para facilitar debugging
+        const expiredSessions = await this.prisma.sessao.findMany({
+          where: {
             userId,
-            estado: SessionState.MAIN_MENU,
-            instanceName: instanceId,
-            esperando_resposta: false,
+            estado: SessionState.EXPIRED,
           },
-          include: {
-            estudante: true,
-            atendente: true,
-            mensagens: true,
-          },
+          select: { id: true },
         });
+
+        if (expiredSessions.length > 0) {
+          this.logger.log(
+            `O usuário ${userId} possui ${expiredSessions.length} sessões expiradas que serão mantidas no histórico`,
+          );
+        }
+
+        return await this.createNewSession(userId, instanceId);
       } else {
-        // Atualiza o timestamp da última interação
+        // Atualiza o timestamp da última interação da sessão ativa
         dbSession = await this.prisma.sessao.update({
           where: { id: dbSession.id },
           data: {
@@ -72,7 +123,7 @@ export class SessionRepository {
       }
 
       // Converte o objeto do banco de dados para o formato esperado pela aplicação
-      const teste=  this.mapDbSessionToSession(dbSession);
+      const teste = this.mapDbSessionToSession(dbSession);
       console.log('teste', teste);
       return teste;
     } catch (error) {
@@ -92,7 +143,6 @@ export class SessionRepository {
       };
     }
   }
-
   /**
    * Atualiza o estado da sessão no banco de dados
    */
@@ -101,11 +151,25 @@ export class SessionRepository {
     newState: SessionState,
   ): Promise<Session | null> {
     try {
+      // Busca apenas sessões não expiradas
       const dbSession = await this.prisma.sessao.findFirst({
-        where: { userId },
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
       });
 
-      if (!dbSession) return null;
+      if (!dbSession) {
+        this.logger.warn(
+          `Tentativa de atualizar estado de sessão inexistente ou expirada para o usuário ${userId}`,
+        );
+        return null;
+      }
 
       const updatedSession = await this.prisma.sessao.update({
         where: { id: dbSession.id },
@@ -137,7 +201,6 @@ export class SessionRepository {
       return null;
     }
   }
-
   /**
    * Armazena uma nova mensagem na sessão
    */
@@ -147,13 +210,22 @@ export class SessionRepository {
     origem: 'USUARIO' | 'BOT',
   ): Promise<void> {
     try {
+      // Busca apenas sessões ativas (não expiradas)
       const dbSession = await this.prisma.sessao.findFirst({
-        where: { userId },
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
       });
 
       if (!dbSession) {
         this.logger.warn(
-          `Tentativa de salvar mensagem para sessão inexistente: ${userId}`,
+          `Tentativa de salvar mensagem para sessão inexistente ou expirada: ${userId}`,
         );
         return;
       }
@@ -215,7 +287,6 @@ export class SessionRepository {
       return null;
     }
   }
-
   /**
    * Atualiza os dados do estudante na sessão
    */
@@ -224,12 +295,25 @@ export class SessionRepository {
     userData: UserData,
   ): Promise<Session | null> {
     try {
-      // Primeiro, busca a sessão
+      // Primeiro, busca a sessão ativa
       const dbSession = await this.prisma.sessao.findFirst({
-        where: { userId },
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
       });
 
-      if (!dbSession) return null;
+      if (!dbSession) {
+        this.logger.warn(
+          `Tentativa de atualizar dados de usuário para sessão inexistente ou expirada: ${userId}`,
+        );
+        return null;
+      }
 
       // Verifica se o estudante já existe pelo CPF
       let estudante = await this.prisma.estudante.findUnique({
@@ -277,7 +361,6 @@ export class SessionRepository {
       return null;
     }
   }
-
   /**
    * Atualiza os dados do usuário em uma sessão
    */
@@ -286,9 +369,17 @@ export class SessionRepository {
     userData: UserData,
   ): Promise<Session> {
     try {
-      // Busca a sessão existente
+      // Busca a sessão ativa
       const dbSession = await this.prisma.sessao.findFirst({
-        where: { userId },
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
         include: {
           estudante: true,
           atendente: true,
@@ -353,17 +444,30 @@ export class SessionRepository {
       throw error;
     }
   }
-
   /**
    * Encerra uma sessão (não exclui, apenas marca como finalizada)
    */
   async encerrarSessao(userId: string): Promise<void> {
     try {
+      // Busca a sessão ativa (não expirada)
       const dbSession = await this.prisma.sessao.findFirst({
-        where: { userId },
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
       });
 
-      if (!dbSession) return;
+      if (!dbSession) {
+        this.logger.debug(
+          `Nenhuma sessão ativa encontrada para encerrar do usuário ${userId}`,
+        );
+        return;
+      }
 
       // Em vez de excluir, apenas atualiza o estado para ENCERRAMENTO
       await this.prisma.sessao.update({
@@ -381,17 +485,36 @@ export class SessionRepository {
       );
     }
   }
-
   /**
    * Obtém as últimas mensagens de uma sessão para contexto
    */
   async getSessionContext(userId: string, limit: number = 10): Promise<string> {
     try {
+      // Primeiro encontrar a sessão ativa
+      const sessaoAtiva = await this.prisma.sessao.findFirst({
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
+        select: { id: true },
+      });
+
+      if (!sessaoAtiva) {
+        this.logger.debug(
+          `Nenhuma sessão ativa encontrada para obter contexto do usuário ${userId}`,
+        );
+        return '';
+      }
+
+      // Buscar mensagens apenas da sessão ativa
       const mensagens = await this.prisma.mensagem.findMany({
         where: {
-          sessao: {
-            userId,
-          },
+          sessao_id: sessaoAtiva.id,
         },
         orderBy: {
           timestamp: 'desc',
@@ -412,9 +535,8 @@ export class SessionRepository {
       return '';
     }
   }
-
   /**
-   * Limpa sessões antigas (mais de 24 horas sem interação)
+   * Marca sessões antigas (mais de 24 horas sem interação) como expiradas
    */
   async cleanExpiredSessions(): Promise<number> {
     try {
@@ -427,22 +549,24 @@ export class SessionRepository {
             lt: oneDayAgo,
           },
           NOT: {
-            estado: SessionState.ENCERRAMENTO,
+            estado: SessionState.EXPIRED,
           },
         },
         data: {
-          estado: SessionState.ENCERRAMENTO,
+          estado: SessionState.EXPIRED,
         },
       });
 
       if (result.count > 0) {
-        this.logger.log(`${result.count} sessões antigas foram encerradas`);
+        this.logger.log(
+          `${result.count} sessões antigas foram marcadas como expiradas`,
+        );
       }
 
       return result.count;
     } catch (error) {
       this.logger.error(
-        `Erro ao limpar sessões expiradas: ${error.message}`,
+        `Erro ao marcar sessões expiradas: ${error.message}`,
         error.stack,
       );
       return 0;

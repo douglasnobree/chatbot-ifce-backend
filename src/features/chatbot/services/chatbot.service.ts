@@ -528,7 +528,7 @@ Ex: 12345678910, 2345
   /**
    * Tarefa cron para limpar sessões expiradas periodicamente
    */
-  @Cron('0 */5 * * * *') // Executa a cada 5 minutos
+  @Cron('0 */1 * * * *') // Executa a cada 5 minutos
   async handleSessionCleanup() {
     this.logger.debug('Executando limpeza de sessões expiradas');
     const cleanedSessions = await this.sessionService.cleanExpiredSessions();
