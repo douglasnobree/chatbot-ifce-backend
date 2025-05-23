@@ -844,7 +844,13 @@ Nada consta da biblioteca;
 1️⃣ Acesse o link do Q-Acadêmico: https://qacademico.ifce.edu.br
 2️⃣ Realize o login com sua matrícula e senha
 3️⃣ Na tela inicial, clique em "Solicitar documentos"
-4️⃣ Em seguida, clique em "Nova Solitação"`;
+4️⃣ Em seguida, clique em "Nova Solitação
+
+Deseja fazer mais alguma coisa?
+0 - Menu principal
+1 - Encerrar atendimento"
+
+`;
 
     await this.enviarMensagem(session, menuText);
   }

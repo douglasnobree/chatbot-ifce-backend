@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class SessionService {
   private readonly logger = new Logger(SessionService.name);
-  private readonly SESSION_TIMEOUT = 1 * 60 * 1000; // 15 minutos em milissegundos
+  private readonly SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutos em milissegundos
   private sessions: Map<string, Session> = new Map(); // Cache em memória para sessões ativas
 
   constructor(
