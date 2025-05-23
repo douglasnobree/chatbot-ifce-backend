@@ -144,6 +144,30 @@ export class SessionService {
     }
   }
 
+  async getLatestSession(userId: string): Promise<Session | null> {
+    try {
+      // Verifica no cache em memória
+      let session = this.sessions.get(userId);
+
+      if (!session) {
+        // Se não estiver em cache, busca no banco de dados
+        session = await this.sessionRepository.getLatestSession(userId);
+        if (session) {
+          // Armazena em cache
+          this.sessions.set(userId, session);
+        }
+      }
+
+      return session;
+    } catch (error) {
+      this.logger.error(
+        `Erro ao obter a última sessão: ${error.message}`,
+        error.stack,
+      );
+      return null;
+    }
+  }
+
   /**
    * Verifica e limpa sessões expiradas
    * @returns Número de sessões limpas

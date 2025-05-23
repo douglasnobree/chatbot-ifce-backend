@@ -164,6 +164,7 @@ export const ErrorMessages = {
   TELEFONE_INVALIDO: `❌ Telefone inválido. Por favor, informe os últimos 4 dígitos do telefone.\n\nExemplo: 12345678910, 2345\n\n0 - Voltar ao menu principal`,
   MATRICULA_NAO_ENCONTRADA: `❌ Não encontramos sua matrícula com os dados informados.\n\nPor favor, verifique:\n- CPF digitado corretamente\n- Número de telefone informado é o que está cadastrado na instituição\n\nDeseja tentar novamente?\n1 - Sim\n0 - Voltar ao menu principal`,
   ERRO_CONSULTA: `❌ Ocorreu um erro ao consultar sua matrícula. Por favor, tente novamente mais tarde.`,
+  ERRO_PROCESSAMENTO: `❌ Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente mais tarde.`,
 };
 
 /**

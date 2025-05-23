@@ -10,6 +10,8 @@ import { UserDataService } from './user-data.service';
 import { WhatsAppSessionService } from './whatsapp-session.service';
 import { HandlersFactory } from './handlers-factory.service';
 import { OperacoesBaseService } from './operacoes-base.service';
+import { EstatisticasService } from './estatisticas-db.service';
+import { NotificacoesService } from './notificacoes.service';
 
 @Injectable()
 export class ChatbotService {
@@ -23,6 +25,8 @@ export class ChatbotService {
     private readonly whatsAppSessionService: WhatsAppSessionService,
     private readonly handlersFactory: HandlersFactory,
     private readonly operacoesBaseService: OperacoesBaseService,
+    private readonly estatisticasService: EstatisticasService,
+    private readonly notificacoesService: NotificacoesService,
   ) {}
 
   /**
@@ -51,6 +55,14 @@ export class ChatbotService {
         InstanceName,
       );
 
+      // Verifica se é uma nova sessão para registrar estatísticas
+      if (
+        session.state === SessionState.MAIN_MENU &&
+        session.lastInteractionTime === Date.now()
+      ) {
+        this.estatisticasService.registrarNovaSessao();
+      }
+
       this.logger.log(
         `Processando mensagem do usuário ${remetente} no estado ${session.state}`,
       );
@@ -58,6 +70,11 @@ export class ChatbotService {
       // Se for uma resposta a outra mensagem, registramos isso no log
       if (mensagemOriginal) {
         this.logger.log(`Mensagem é uma resposta a: "${mensagemOriginal}"`);
+
+        // Armazena a mensagem original na sessão para contexto
+        await this.userDataService.updateUserData(remetente, {
+          lastQuotedMessage: mensagemOriginal,
+        });
       }
 
       // Salva a mensagem recebida no banco de dados
@@ -75,17 +92,26 @@ export class ChatbotService {
 
   /**
    * Processa a mensagem com base no estado atual da sessão
-   */
-  private async processarMensagemPorEstado(
+   */ private async processarMensagemPorEstado(
     session: Session,
     mensagem: string,
   ): Promise<void> {
     try {
+      // Registra o acesso ao estado atual para estatísticas
+      this.estatisticasService.registrarAcessoMenu(session.state);
+
       // Se o estado for ENCERRAMENTO ou EXPIRED, exibe o menu principal
       if (
         session.state === SessionState.ENCERRAMENTO ||
         session.state === SessionState.EXPIRED
       ) {
+        // Para sessões novas ou expiradas, envia mensagem de boas-vindas
+        const isReturningUser = session.state === SessionState.ENCERRAMENTO;
+        await this.notificacoesService.enviarMensagemBoasVindas(
+          session,
+          isReturningUser,
+        );
+
         await this.operacoesBaseService.exibirMenuPrincipal(session);
         return;
       }

@@ -13,6 +13,8 @@ import {
   JustificarFaltasHandler,
   AcompanharProcessosHandler,
 } from '../handlers/protocolo/outros-handlers';
+import { RegistroDocumentosHandler } from '../handlers/documentos/registro-documentos.handler';
+import { ProcessosAcompanhamentoHandler } from '../handlers/processos/processos-acompanhamento.handler';
 
 @Injectable()
 export class HandlersFactory {
@@ -27,44 +29,59 @@ export class HandlersFactory {
     private readonly emitirDocumentosHandler: EmitirDocumentosHandler,
     private readonly justificarFaltasHandler: JustificarFaltasHandler,
     private readonly acompanharProcessosHandler: AcompanharProcessosHandler,
+    private readonly registroDocumentosHandler: RegistroDocumentosHandler,
+    private readonly processosAcompanhamentoHandler: ProcessosAcompanhamentoHandler,
   ) {}
 
   /**
    * Retorna o handler adequado para o estado atual da sessão
-   */
-  getHandler(state: SessionState): MenuHandler {
+   */ getHandler(state: SessionState): MenuHandler {
     switch (state) {
+      // Menu principal
       case SessionState.MAIN_MENU:
         return this.mainMenuHandler;
 
+      // Protocolo
       case SessionState.PROTOCOLO_MENU:
         return this.protocoloMenuHandler;
 
+      // Consulta de matrícula
       case SessionState.CONSULTAR_MATRICULA:
       case SessionState.ESPERANDO_CPF_TELEFONE:
       case SessionState.RESULTADO_CONSULTA:
         return this.consultaMatriculaHandler;
 
+      // Assistência Estudantil
       case SessionState.ASSISTENCIA_ESTUDANTIL:
         return this.assistenciaEstudantilHandler;
 
+      // Cursos e Formas de Ingresso
       case SessionState.CURSOS_INGRESSO:
         return this.cursosIngressoHandler;
 
+      // Comunicação com os setores
       case SessionState.COMUNICACAO_SETORES:
+      case SessionState.AGUARDANDO_RESPOSTA_SETOR:
+      case SessionState.ATENDIMENTO_HUMANO:
         return this.comunicacaoSetoresHandler;
 
+      // Trancamento ou Reabertura
       case SessionState.TRANCAMENTO_REABERTURA:
         return this.trancamentoReaberturaHandler;
 
+      // Documentos
       case SessionState.EMITIR_DOCUMENTOS:
-        return this.emitirDocumentosHandler;
+      case SessionState.REGISTRO_DOCUMENTO_PENDENTE:
+        return this.registroDocumentosHandler;
 
+      // Faltas
       case SessionState.JUSTIFICAR_FALTAS:
         return this.justificarFaltasHandler;
 
+      // Acompanhamento de Processos
       case SessionState.ACOMPANHAR_PROCESSOS:
-        return this.acompanharProcessosHandler;
+      case SessionState.CONSULTANDO_PROTOCOLO:
+        return this.processosAcompanhamentoHandler;
 
       default:
         // Em caso de estado não reconhecido, volta para o menu principal

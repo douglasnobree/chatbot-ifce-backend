@@ -82,3 +82,28 @@ model Mensagem {
   sessao_id String
   sessao    Sessao @relation(fields: [sessao_id], references: [id])
 }
+
+// Modelo para estatísticas de uso do chatbot
+model Estatistica {
+  id                   String   @id @default(uuid())
+  data                 DateTime @default(now()) @db.Date
+  total_sessoes        Int      @default(0)
+  sessoes_ativas       Int      @default(0)
+  duracao_media_sessao Float    @default(0) // em minutos
+  data_registro        DateTime @default(now())
+
+  // Relacionamentos
+  menu_acessos MenuAcesso[]
+}
+
+// Modelo para armazenar estatísticas de acesso aos menus
+model MenuAcesso {
+  id            String   @id @default(uuid())
+  tipo_menu     String // Corresponde ao SessionState
+  contagem      Int      @default(0)
+  ultimo_acesso DateTime @default(now())
+
+  // Relacionamentos
+  estatistica_id String
+  estatistica    Estatistica @relation(fields: [estatistica_id], references: [id])
+}

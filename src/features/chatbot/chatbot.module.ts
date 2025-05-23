@@ -10,6 +10,10 @@ import { WhatsAppSessionService } from './services/whatsapp-session.service';
 import { MensagensService } from './services/mensagens.service';
 import { OperacoesBaseService } from './services/operacoes-base.service';
 import { HandlersFactory } from './services/handlers-factory.service';
+import { ProtocoloService } from './services/protocolo.service';
+import { ValidacaoService } from './services/validacao.service';
+import { NotificacoesService } from './services/notificacoes.service';
+import { EstatisticasService } from './services/estatisticas-db.service';
 
 // Handlers
 import { MainMenuHandler } from './handlers/main-menu.handler';
@@ -24,9 +28,14 @@ import {
   JustificarFaltasHandler,
   AcompanharProcessosHandler,
 } from './handlers/protocolo/outros-handlers';
+import { RegistroDocumentosHandler } from './handlers/documentos/registro-documentos.handler';
+import { ProcessosAcompanhamentoHandler } from './handlers/processos/processos-acompanhamento.handler';
+
+import { EstatisticasController } from './controllers/estatisticas.controller';
 
 @Module({
   imports: [PrismaModule],
+  controllers: [EstatisticasController],
   providers: [
     // Core Services
     SessionService,
@@ -39,6 +48,10 @@ import {
     MensagensService,
     OperacoesBaseService,
     HandlersFactory,
+    ProtocoloService,
+    ValidacaoService,
+    NotificacoesService,
+    EstatisticasService,
 
     // Handlers
     MainMenuHandler,
@@ -51,6 +64,8 @@ import {
     EmitirDocumentosHandler,
     JustificarFaltasHandler,
     AcompanharProcessosHandler,
+    RegistroDocumentosHandler,
+    ProcessosAcompanhamentoHandler,
   ],
   exports: [
     ChatbotService,
@@ -58,6 +73,10 @@ import {
     MessageService,
     UserDataService,
     WhatsAppSessionService,
+    ProtocoloService,
+    ValidacaoService,
+    NotificacoesService,
+    EstatisticasService,
   ],
 })
 export class ChatbotModule {}

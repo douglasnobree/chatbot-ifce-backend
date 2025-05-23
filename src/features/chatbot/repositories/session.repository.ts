@@ -602,4 +602,34 @@ export class SessionRepository {
       // Opcional: incluir um array com as últimas mensagens se necessário
     };
   }
+
+  async getLatestSession(userId: string): Promise<Session | null> {
+    try {
+      const dbSession = await this.prisma.sessao.findFirst({
+        where: {
+          userId,
+          NOT: {
+            estado: SessionState.EXPIRED,
+          },
+        },
+        orderBy: {
+          ultima_interacao: 'desc',
+        },
+        include: {
+          estudante: true,
+          atendente: true,
+        },
+      });
+
+      if (!dbSession) return null;
+
+      return this.mapDbSessionToSession(dbSession);
+    } catch (error) {
+      this.logger.error(
+        `Erro ao obter a última sessão do usuário ${userId}: ${error.message}`,
+        error.stack,
+      );
+      return null;
+    }
+  }
 }
