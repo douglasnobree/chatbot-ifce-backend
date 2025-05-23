@@ -1,4 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { ChatbotService } from './services/chatbot.service';
 import { SessionService } from './services/session.service';
 import { WhatsappService } from '../whatsapp/service/whatsapp.service';
@@ -6,10 +5,17 @@ import { SessionRepository } from './repositories/session.repository';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { SessionState, UserData, Session } from './entities/session.entity';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MessageService } from './services/message.service';
+import { UserDataService } from './services/user-data.service';
+import { WhatsAppSessionService } from './services/whatsapp-session.service';
+import { Test, TestingModule } from '@nestjs/testing';
 
 describe('ChatbotService', () => {
   let chatbotService: ChatbotService;
   let sessionService: SessionService;
+  let messageService: MessageService;
+  let userDataService: UserDataService;
+  let whatsAppSessionService: WhatsAppSessionService;
   let whatsappService: WhatsappService;
   let sessionRepository: SessionRepository;
   let prismaService: PrismaService;
@@ -28,6 +34,14 @@ describe('ChatbotService', () => {
     instanceId: 'test-instance',
     esperandoResposta: false,
   };
+  // Mock para a sessão do WhatsApp
+  const mockWhatsAppSession = {
+    id: 1,
+    InstanceName: 'test-instance',
+    numero_telefone: '558899999999',
+    status: true,
+    jwt_token: 'test-token',
+  };
 
   beforeEach(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -36,6 +50,9 @@ describe('ChatbotService', () => {
         ChatbotService,
         SessionService,
         SessionRepository,
+        MessageService,
+        UserDataService,
+        WhatsAppSessionService,
         {
           provide: WhatsappService,
           useValue: whatsappServiceMock,
@@ -45,8 +62,14 @@ describe('ChatbotService', () => {
 
     chatbotService = moduleRef.get<ChatbotService>(ChatbotService);
     sessionService = moduleRef.get<SessionService>(SessionService);
+    messageService = moduleRef.get<MessageService>(MessageService);
+    userDataService = moduleRef.get<UserDataService>(UserDataService);
+    whatsAppSessionService = moduleRef.get<WhatsAppSessionService>(
+      WhatsAppSessionService,
+    );
     sessionRepository = moduleRef.get<SessionRepository>(SessionRepository);
     prismaService = moduleRef.get<PrismaService>(PrismaService);
+    whatsappService = moduleRef.get<WhatsappService>(WhatsappService);
 
     // Spy no método getOrCreateSession
     jest
@@ -55,7 +78,7 @@ describe('ChatbotService', () => {
 
     // Spy no método saveMessage
     jest
-      .spyOn(sessionService, 'saveMessage')
+      .spyOn(messageService, 'saveMessage')
       .mockImplementation(() => Promise.resolve());
 
     // Spy no método updateSessionState
@@ -65,6 +88,11 @@ describe('ChatbotService', () => {
         mockSession.state = state;
         return Promise.resolve(mockSession);
       });
+
+    // Spy no método getSessionNameById
+    jest
+      .spyOn(whatsAppSessionService, 'getSessionNameById')
+      .mockImplementation(() => Promise.resolve(mockWhatsAppSession));
   });
 
   afterEach(() => {
@@ -81,12 +109,12 @@ describe('ChatbotService', () => {
       // Act
       await chatbotService.processMessage(userId, message, instanceId);
 
-      // Assert
+      // Assert      expect(whatsAppSessionService.getSessionNameById).toHaveBeenCalled();
       expect(sessionService.getOrCreateSession).toHaveBeenCalledWith(
         userId,
         instanceId,
       );
-      expect(sessionService.saveMessage).toHaveBeenCalledWith(
+      expect(messageService.saveMessage).toHaveBeenCalledWith(
         userId,
         message,
         'USUARIO',
@@ -139,11 +167,9 @@ describe('ChatbotService', () => {
       const message = '12345678910, 2345'; // CPF e 4 últimos dígitos do telefone
       const instanceId = 'test-instance';
 
-      mockSession.state = SessionState.ESPERANDO_CPF_TELEFONE;
-
-      // Mock para o método findUserByCpfAndPhone
+      mockSession.state = SessionState.ESPERANDO_CPF_TELEFONE; // Mock para o método findUserByCpfAndPhone
       jest
-        .spyOn(sessionService, 'findUserByCpfAndPhone')
+        .spyOn(userDataService, 'findUserByCpfAndPhone')
         .mockImplementation(() =>
           Promise.resolve({
             cpf: '12345678910',
@@ -158,7 +184,7 @@ describe('ChatbotService', () => {
       await chatbotService.processMessage(userId, message, instanceId);
 
       // Assert
-      expect(sessionService.findUserByCpfAndPhone).toHaveBeenCalledWith(
+      expect(userDataService.findUserByCpfAndPhone).toHaveBeenCalledWith(
         '12345678910',
         '2345',
       );

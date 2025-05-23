@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Session, SessionState, UserData } from '../entities/session.entity';
 import { SessionRepository } from '../repositories/session.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { MessageService } from './message.service';
+import { UserDataService } from './user-data.service';
+import { WhatsAppSessionService } from './whatsapp-session.service';
 
 @Injectable()
 export class SessionService {
@@ -12,6 +15,8 @@ export class SessionService {
   constructor(
     private readonly sessionRepository: SessionRepository,
     private readonly prisma: PrismaService,
+    private readonly messageService: MessageService,
+    private readonly whatsAppSessionService: WhatsAppSessionService,
   ) {} /**
    * Obtém uma sessão existente ou cria uma nova se não existir ou estiver expirada
    */
@@ -106,75 +111,6 @@ export class SessionService {
   }
 
   /**
-   * Armazena uma mensagem recebida ou enviada
-   */
-  async saveMessage(
-    userId: string,
-    conteudo: string,
-    origem: 'USUARIO' | 'BOT',
-  ): Promise<void> {
-    try {
-      await this.sessionRepository.saveMessage(userId, conteudo, origem);
-    } catch (error) {
-      this.logger.error(
-        `Erro ao salvar mensagem: ${error.message}`,
-        error.stack,
-      );
-    }
-  }
-
-  /**
-   * Atualiza dados do usuário na sessão
-   */
-  async updateUserData(
-    userId: string,
-    userData: Partial<UserData>,
-  ): Promise<Session | null> {
-    try {
-      // Primeiro, atualiza no banco de dados
-      const cachedSession = this.sessions.get(userId);
-
-      if (cachedSession) {
-        // Mescla os dados atuais com os novos dados
-        const updatedUserData = {
-          ...cachedSession.userData,
-          ...userData,
-        } as UserData;
-
-        // Atualiza no banco de dados
-        const session = await this.sessionRepository.updateUserData(
-          userId,
-          updatedUserData,
-        );
-
-        // Atualiza em cache
-        if (session) {
-          this.sessions.set(userId, session);
-        }
-
-        return session;
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.error(
-        `Erro ao atualizar dados do usuário: ${error.message}`,
-        error.stack,
-      );
-
-      // Fallback: tenta atualizar apenas em memória
-      const cachedSession = this.sessions.get(userId);
-      if (cachedSession) {
-        cachedSession.userData = { ...cachedSession.userData, ...userData };
-        cachedSession.lastInteractionTime = Date.now();
-        return cachedSession;
-      }
-
-      return null;
-    }
-  }
-
-  /**
    * Define se o chatbot está esperando uma resposta do usuário
    */
   async setEsperandoResposta(
@@ -209,16 +145,10 @@ export class SessionService {
   }
 
   /**
-   * Obtém o contexto da conversa (últimas mensagens)
-   */
-  async getSessionContext(userId: string, limit: number = 10): Promise<string> {
-    return await this.sessionRepository.getSessionContext(userId, limit);
-  }
-
-  /**
    * Verifica e limpa sessões expiradas
    * @returns Número de sessões limpas
-   */ async cleanExpiredSessions(): Promise<number> {
+   */
+   async cleanExpiredSessions(): Promise<number> {
     try {
       // Marca sessões expiradas no cache em memória e no banco
       const now = Date.now();
@@ -272,112 +202,24 @@ export class SessionService {
   }
 
   /**
-   * Busca usuário pelo CPF e telefone
+   * Obtém o estado atual da sessão do WhatsApp
+   * @deprecated Use WhatsAppSessionService.getSessionWhatsAppCurrentState instead
    */
-  async findUserByCpfAndPhone(
-    cpf: string,
-    phone: string,
-  ): Promise<UserData | null> {
-    try {
-      // Extrai apenas os 4 últimos dígitos do telefone
-      const lastDigits = phone.slice(-4);
-
-      // Busca no banco de dados
-      return await this.sessionRepository.findStudentByCpfAndPhone(
-        cpf,
-        lastDigits,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Erro ao buscar usuário por CPF e telefone: ${error.message}`,
-        error.stack,
-      );
-
-      // Fallback para dados fixos em caso de erro
-      if (cpf === '12345678910' && phone.endsWith('2345')) {
-        return {
-          cpf,
-          telefone: phone,
-          nome: 'Ana Silva',
-          curso: 'Engenharia Civil',
-          matricula: '2023123456',
-        };
-      }
-
-      return null;
-    }
-  }
-
-  /**
-   * Atualiza os dados do usuário em uma sessão
-   */
-  async updateSessionData(
-    userId: string,
-    userData: UserData,
-  ): Promise<Session | null> {
-    try {
-      // Atualiza no banco de dados
-      const session = await this.sessionRepository.updateSessionData(
-        userId,
-        userData,
-      );
-
-      // Também atualiza em cache
-      if (session) {
-        this.sessions.set(userId, session);
-      }
-
-      this.logger.log(`Dados do usuário ${userId} atualizados com sucesso`);
-      return session;
-    } catch (error) {
-      this.logger.error(
-        `Erro ao atualizar dados da sessão: ${error.message}`,
-        error.stack,
-      );
-
-      // Fallback: tenta atualizar apenas em memória
-      const cachedSession = this.sessions.get(userId);
-      if (cachedSession) {
-        cachedSession.userData = userData;
-        cachedSession.lastInteractionTime = Date.now();
-        return cachedSession;
-      }
-
-      return null;
-    }
-  }
-
   async getSessionWhatsAppCurrentState() {
-    try {
-      const response = await this.prisma.whatsAppSession.findFirst({
-        where: {
-          status: true,
-        },
-      });
-      return response;
-    } catch (error) {
-      this.logger.error(
-        `Erro ao obter o estado atual do WhatsApp: ${error.message}`,
-        error.stack,
-      );
-      return null;
-    }
+    return this.whatsAppSessionService.getSessionWhatsAppCurrentState();
   }
-
+  /**
+   * Obtém o nome da sessão pelo ID
+   * @deprecated Use WhatsAppSessionService.getSessionNameById instead
+   */
   async getSessionNameById(id: number) {
-    try {
-      const response = await this.prisma.whatsAppSession.findUnique({
-        where: {
-          id: id,
-        },
-      });
-      return response;
-    } catch (error) {
-      this.logger.error(
-        `Erro ao obter o nome da sessão pelo ID: ${error.message}`,
-        error.stack,
-      );
-      return null;
-    }
+    return this.whatsAppSessionService.getSessionNameById(id);
+  }
+  /**
+   * Obtém o contexto da conversa (últimas mensagens)
+   * @deprecated Use MessageService.getSessionContext instead
+   */
+  async getSessionContext(userId: string, limit: number = 10): Promise<string> {
+    return this.messageService.getSessionContext(userId, limit);
   }
 }

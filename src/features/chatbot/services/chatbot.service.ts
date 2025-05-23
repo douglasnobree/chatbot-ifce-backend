@@ -4,6 +4,9 @@ import { Session, SessionState } from '../entities/session.entity';
 import { WhatsappService } from '../../whatsapp/service/whatsapp.service';
 import { SendMessageDto } from '../../whatsapp/dto/send-message.dto';
 import { Cron } from '@nestjs/schedule';
+import { MessageService } from './message.service';
+import { UserDataService } from './user-data.service';
+import { WhatsAppSessionService } from './whatsapp-session.service';
 
 @Injectable()
 export class ChatbotService {
@@ -12,6 +15,9 @@ export class ChatbotService {
   constructor(
     private readonly sessionService: SessionService,
     private readonly whatsappService: WhatsappService,
+    private readonly messageService: MessageService,
+    private readonly userDataService: UserDataService,
+    private readonly whatsAppSessionService: WhatsAppSessionService,
   ) {}
 
   /**
@@ -31,9 +37,10 @@ export class ChatbotService {
     const instanceIdStr = instanceId.toString();
     try {
       // Obtém ou cria a sessão do usuário
-      const { InstanceName } = await this.sessionService.getSessionNameById(
-        Number(instanceId),
-      );
+      const { InstanceName } =
+        await this.whatsAppSessionService.getSessionNameById(
+          Number(instanceId),
+        );
       const session = await this.sessionService.getOrCreateSession(
         remetente,
         InstanceName,
@@ -46,10 +53,8 @@ export class ChatbotService {
       // Se for uma resposta a outra mensagem, registramos isso no log
       if (mensagemOriginal) {
         this.logger.log(`Mensagem é uma resposta a: "${mensagemOriginal}"`);
-      }
-
-      // Salva a mensagem recebida no banco de dados
-      await this.sessionService.saveMessage(remetente, mensagem, 'USUARIO');
+      } // Salva a mensagem recebida no banco de dados
+      await this.messageService.saveMessage(remetente, mensagem, 'USUARIO');
 
       // Processa a mensagem com base no estado atual da sessão
       await this.processarMensagemPorEstado(session, mensagem);
@@ -302,7 +307,7 @@ export class ChatbotService {
 
     try {
       // Busca o usuário no banco de dados
-      const usuario = await this.sessionService.findUserByCpfAndPhone(
+      const usuario = await this.userDataService.findUserByCpfAndPhone(
         cpf,
         telefone,
       );
@@ -315,7 +320,7 @@ export class ChatbotService {
 
       if (usuario) {
         // Atualizando os dados do usuário na sessão
-        await this.sessionService.updateUserData(session.userId, usuario);
+        await this.userDataService.updateUserData(session.userId, usuario);
 
         // Exibe os dados encontrados
         await this.enviarMensagem(
@@ -728,33 +733,29 @@ Ex: 12345678910, 2345
           await this.exibirMenuPrincipal(session);
           break;
 
-        case '1':
-          // Comunicação
-          await this.sessionService.updateUserData(session.userId, {
+        case '1': // Comunicação
+          await this.userDataService.updateUserData(session.userId, {
             escolhaSetor: 'Comunicação',
           });
           await this.exibirColetaDadosAtendimento(session);
           break;
 
-        case '2':
-          // Diretoria
-          await this.sessionService.updateUserData(session.userId, {
+        case '2': // Diretoria
+          await this.userDataService.updateUserData(session.userId, {
             escolhaSetor: 'Diretoria',
           });
           await this.exibirColetaDadosAtendimento(session);
           break;
 
-        case '3':
-          // Coordenação
-          await this.sessionService.updateUserData(session.userId, {
+        case '3': // Coordenação
+          await this.userDataService.updateUserData(session.userId, {
             escolhaSetor: 'Coordenação',
           });
           await this.exibirColetaDadosAtendimento(session);
           break;
 
-        case '4':
-          // Secretaria
-          await this.sessionService.updateUserData(session.userId, {
+        case '4': // Secretaria
+          await this.userDataService.updateUserData(session.userId, {
             escolhaSetor: 'Secretaria',
           });
           await this.exibirColetaDadosAtendimento(session);
@@ -943,7 +944,7 @@ Deseja fazer mais alguma coisa?
    */
   private async exibirComunicacaoSetores(session: Session): Promise<void> {
     // Resetar a escolha do setor
-    await this.sessionService.updateUserData(session.userId, {
+    await this.userDataService.updateUserData(session.userId, {
       escolhaSetor: null,
     });
 

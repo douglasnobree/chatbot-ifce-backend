@@ -36,6 +36,7 @@ export class WhatsappService implements OnModuleInit {
     private configService: ConfigService,
     private readonly PrismaService: PrismaService,
     private readonly sessionService: SessionService,
+    
   ) {
     this.apiUrl = this.configService.get<string>('WHATSAPP_API_URL');
     this.apiKey = this.configService.get<string>('WHATSAPP_API_KEY');
