@@ -60,7 +60,6 @@ export class ChatbotService {
       );
     }
   }
-
   /**
    * Processa a mensagem com base no estado atual da sessão
    */
@@ -88,6 +87,34 @@ export class ChatbotService {
         await this.processarResultadoConsulta(session, msgNormalizada);
         break;
 
+      case SessionState.TRANCAMENTO_REABERTURA:
+        await this.processarTrancamentoReabertura(session, msgNormalizada);
+        break;
+
+      case SessionState.EMITIR_DOCUMENTOS:
+        await this.processarEmitirDocumentos(session, msgNormalizada);
+        break;
+
+      case SessionState.JUSTIFICAR_FALTAS:
+        await this.processarJustificarFaltas(session, msgNormalizada);
+        break;
+
+      case SessionState.ACOMPANHAR_PROCESSOS:
+        await this.processarAcompanharProcessos(session, msgNormalizada);
+        break;
+
+      case SessionState.ASSISTENCIA_ESTUDANTIL:
+        await this.processarAssistenciaEstudantil(session, msgNormalizada);
+        break;
+
+      case SessionState.CURSOS_INGRESSO:
+        await this.processarCursosIngresso(session, msgNormalizada);
+        break;
+
+      case SessionState.COMUNICACAO_SETORES:
+        await this.processarComunicacaoSetores(session, msgNormalizada);
+        break;
+
       // Outros casos serão adicionados conforme necessário
 
       default:
@@ -98,8 +125,7 @@ export class ChatbotService {
 
   /**
    * Processa interações com o menu principal
-   */
-  private async processarMenuPrincipal(
+   */ private async processarMenuPrincipal(
     session: Session,
     mensagem: string,
   ): Promise<void> {
@@ -119,11 +145,7 @@ export class ChatbotService {
           session.userId,
           SessionState.ASSISTENCIA_ESTUDANTIL,
         );
-        await this.enviarMensagem(
-          session,
-          'Este módulo de Assistência Estudantil será implementado em breve.',
-        );
-        await this.exibirMenuPrincipal(session);
+        await this.exibirAssistenciaEstudantil(session);
         break;
 
       case '3':
@@ -132,11 +154,7 @@ export class ChatbotService {
           session.userId,
           SessionState.CURSOS_INGRESSO,
         );
-        await this.enviarMensagem(
-          session,
-          'Este módulo de Cursos e Formas de Ingresso será implementado em breve.',
-        );
-        await this.exibirMenuPrincipal(session);
+        await this.exibirCursosIngresso(session);
         break;
 
       case '4':
@@ -145,11 +163,7 @@ export class ChatbotService {
           session.userId,
           SessionState.COMUNICACAO_SETORES,
         );
-        await this.enviarMensagem(
-          session,
-          'Este módulo de Comunicação com os setores será implementado em breve.',
-        );
-        await this.exibirMenuPrincipal(session);
+        await this.exibirComunicacaoSetores(session);
         break;
 
       case '5':
@@ -169,8 +183,7 @@ export class ChatbotService {
 
   /**
    * Processa interações com o menu de protocolo
-   */
-  private async processarMenuProtocolo(
+   */ private async processarMenuProtocolo(
     session: Session,
     mensagem: string,
   ): Promise<void> {
@@ -190,11 +203,7 @@ export class ChatbotService {
           session.userId,
           SessionState.TRANCAMENTO_REABERTURA,
         );
-        await this.enviarMensagem(
-          session,
-          'Este módulo de Trancamento ou reabertura de curso será implementado em breve.',
-        );
-        await this.exibirMenuProtocolo(session);
+        await this.exibirTrancamentoReabertura(session);
         break;
 
       case '3':
@@ -203,11 +212,7 @@ export class ChatbotService {
           session.userId,
           SessionState.EMITIR_DOCUMENTOS,
         );
-        await this.enviarMensagem(
-          session,
-          'Este módulo de Emissão de documentos será implementado em breve.',
-        );
-        await this.exibirMenuProtocolo(session);
+        await this.exibirEmitirDocumentos(session);
         break;
 
       case '4':
@@ -216,11 +221,7 @@ export class ChatbotService {
           session.userId,
           SessionState.JUSTIFICAR_FALTAS,
         );
-        await this.enviarMensagem(
-          session,
-          'Este módulo de Justificativa de faltas será implementado em breve.',
-        );
-        await this.exibirMenuProtocolo(session);
+        await this.exibirJustificarFaltas(session);
         break;
 
       case '5':
@@ -229,11 +230,7 @@ export class ChatbotService {
           session.userId,
           SessionState.ACOMPANHAR_PROCESSOS,
         );
-        await this.enviarMensagem(
-          session,
-          'Este módulo de Acompanhamento de processos será implementado em breve.',
-        );
-        await this.exibirMenuProtocolo(session);
+        await this.exibirAcompanharProcessos(session);
         break;
 
       case '0':
@@ -536,5 +533,439 @@ Ex: 12345678910, 2345
     if (cleanedSessions > 0) {
       this.logger.log(`${cleanedSessions} sessões expiradas foram limpas`);
     }
+  }
+
+  /**
+   * Processa interações com o módulo de trancamento ou reabertura de curso
+   */
+  private async processarTrancamentoReabertura(
+    session: Session,
+    mensagem: string,
+  ): Promise<void> {
+    switch (mensagem) {
+      case '0':
+        // Menu principal
+        this.sessionService.updateSessionState(
+          session.userId,
+          SessionState.MAIN_MENU,
+        );
+        await this.exibirMenuPrincipal(session);
+        break;
+
+      case '1':
+        // Encerrar atendimento
+        await this.encerrarAtendimento(session);
+        break;
+
+      default:
+        // Qualquer outra mensagem, exibe o menu novamente
+        await this.exibirTrancamentoReabertura(session);
+        break;
+    }
+  }
+
+  /**
+   * Processa interações com o módulo de emissão de documentos
+   */
+  private async processarEmitirDocumentos(
+    session: Session,
+    mensagem: string,
+  ): Promise<void> {
+    switch (mensagem) {
+      case '0':
+        // Menu principal
+        this.sessionService.updateSessionState(
+          session.userId,
+          SessionState.MAIN_MENU,
+        );
+        await this.exibirMenuPrincipal(session);
+        break;
+
+      case '1':
+        // Encerrar atendimento
+        await this.encerrarAtendimento(session);
+        break;
+
+      default:
+        // Qualquer outra mensagem, exibe o menu novamente
+        await this.exibirEmitirDocumentos(session);
+        break;
+    }
+  }
+
+  /**
+   * Processa interações com o módulo de justificativa de faltas
+   */
+  private async processarJustificarFaltas(
+    session: Session,
+    mensagem: string,
+  ): Promise<void> {
+    switch (mensagem) {
+      case '0':
+        // Menu principal
+        this.sessionService.updateSessionState(
+          session.userId,
+          SessionState.MAIN_MENU,
+        );
+        await this.exibirMenuPrincipal(session);
+        break;
+
+      case '1':
+        // Encerrar atendimento
+        await this.encerrarAtendimento(session);
+        break;
+
+      default:
+        // Qualquer outra mensagem, exibe o menu novamente
+        await this.exibirJustificarFaltas(session);
+        break;
+    }
+  }
+
+  /**
+   * Processa interações com o módulo de acompanhamento de processos
+   */
+  private async processarAcompanharProcessos(
+    session: Session,
+    mensagem: string,
+  ): Promise<void> {
+    switch (mensagem) {
+      case '0':
+        // Menu principal
+        this.sessionService.updateSessionState(
+          session.userId,
+          SessionState.MAIN_MENU,
+        );
+        await this.exibirMenuPrincipal(session);
+        break;
+
+      case '1':
+        // Encerrar atendimento
+        await this.encerrarAtendimento(session);
+        break;
+
+      default:
+        // Qualquer outra mensagem, exibe o menu novamente
+        await this.exibirAcompanharProcessos(session);
+        break;
+    }
+  }
+
+  /**
+   * Processa interações com o módulo de assistência estudantil
+   */
+  private async processarAssistenciaEstudantil(
+    session: Session,
+    mensagem: string,
+  ): Promise<void> {
+    switch (mensagem) {
+      case '0':
+        // Menu principal
+        this.sessionService.updateSessionState(
+          session.userId,
+          SessionState.MAIN_MENU,
+        );
+        await this.exibirMenuPrincipal(session);
+        break;
+
+      case '1':
+        // Encerrar atendimento
+        await this.encerrarAtendimento(session);
+        break;
+
+      default:
+        // Qualquer outra mensagem, exibe o menu novamente
+        await this.exibirAssistenciaEstudantil(session);
+        break;
+    }
+  }
+
+  /**
+   * Processa interações com o módulo de cursos e formas de ingresso
+   */
+  private async processarCursosIngresso(
+    session: Session,
+    mensagem: string,
+  ): Promise<void> {
+    switch (mensagem) {
+      case '0':
+        // Menu principal
+        this.sessionService.updateSessionState(
+          session.userId,
+          SessionState.MAIN_MENU,
+        );
+        await this.exibirMenuPrincipal(session);
+        break;
+
+      case '1':
+        // Encerrar atendimento
+        await this.encerrarAtendimento(session);
+        break;
+
+      default:
+        // Qualquer outra mensagem, exibe o menu novamente
+        await this.exibirCursosIngresso(session);
+        break;
+    }
+  }
+
+  /**
+   * Processa interações com o módulo de comunicação com os setores
+   */
+  private async processarComunicacaoSetores(
+    session: Session,
+    mensagem: string,
+  ): Promise<void> {
+    // Se o estado for para coletar qual setor o usuário deseja falar
+    if (!session.userData.escolhaSetor) {
+      switch (mensagem) {
+        case '0':
+          // Menu principal
+          this.sessionService.updateSessionState(
+            session.userId,
+            SessionState.MAIN_MENU,
+          );
+          await this.exibirMenuPrincipal(session);
+          break;
+
+        case '1':
+          // Comunicação
+          await this.sessionService.updateUserData(session.userId, {
+            escolhaSetor: 'Comunicação',
+          });
+          await this.exibirColetaDadosAtendimento(session);
+          break;
+
+        case '2':
+          // Diretoria
+          await this.sessionService.updateUserData(session.userId, {
+            escolhaSetor: 'Diretoria',
+          });
+          await this.exibirColetaDadosAtendimento(session);
+          break;
+
+        case '3':
+          // Coordenação
+          await this.sessionService.updateUserData(session.userId, {
+            escolhaSetor: 'Coordenação',
+          });
+          await this.exibirColetaDadosAtendimento(session);
+          break;
+
+        case '4':
+          // Secretaria
+          await this.sessionService.updateUserData(session.userId, {
+            escolhaSetor: 'Secretaria',
+          });
+          await this.exibirColetaDadosAtendimento(session);
+          break;
+
+        default:
+          // Opção inválida
+          await this.enviarMensagem(
+            session,
+            '❌ Opção inválida. Por favor, envie apenas o número da opção desejada.',
+          );
+          await this.exibirComunicacaoSetores(session);
+          break;
+      }
+    } else {
+      // Estado para finalizar o processo e registrar o pedido
+      switch (mensagem) {
+        case '0':
+          // Menu principal
+          this.sessionService.updateSessionState(
+            session.userId,
+            SessionState.MAIN_MENU,
+          );
+          await this.exibirMenuPrincipal(session);
+          break;
+
+        default:
+          // Assume que é a resposta com os dados
+          // Gerar um número de protocolo aleatório para demonstração
+          const numeroProtocolo = Math.floor(100000 + Math.random() * 900000);
+
+          await this.enviarMensagem(
+            session,
+            `✅ Pronto! Seu pedido foi registrado e você será encaminhado para o setor de ${session.userData.escolhaSetor}.\n\n🔁 Aguarde um momento. Assim que um atendente estiver disponível, ele iniciará a conversa por aqui mesmo.\n\n📌 Número do protocolo: #${numeroProtocolo}\n(Salve este número caso precise acompanhar ou retomar o atendimento)\n\nCaso deseje voltar ao menu principal, digite \`0\`.`,
+          );
+          break;
+      }
+    }
+  }
+
+  /**
+   * Exibe a tela de trancamento ou reabertura de curso
+   */
+  private async exibirTrancamentoReabertura(session: Session): Promise<void> {
+    const menuText = `📌 Para solicitar trancamento ou reabertura de matrícula/disciplina, siga estas orientações:
+
+1️⃣ Envie um e-mail para: protocolo.tabuleiro@ifce.edu.br
+2️⃣ No corpo do e-mail, informe:
+Qual procedimento que deseja solicitar (Trancamento ou reabertura de matrícula, ou de uma disciplina);
+Nome;
+Curso;
+E-mail;
+Turno/Polo;
+Matrícula;
+CPF;
+Telefone;
+
+📨 Após o envio, o setor de protocolo encaminharà a solicitação para o sistema. Para saber mais, entre em contato com o setor de atendimento do campus presencialmente.
+
+
+Deseja fazer mais alguma coisa?
+0 - Menu principal
+1 - Encerrar atendimento`;
+
+    await this.enviarMensagem(session, menuText);
+  }
+
+  /**
+   * Exibe a tela de emissão de documentos
+   */
+  private async exibirEmitirDocumentos(session: Session): Promise<void> {
+    const menuText = `📌 Para solicitar documentos (Diploma, por exemplo), siga estas orientações:
+
+1️⃣ Envie um e-mail para: protocolo.tabuleiro@ifce.edu.br
+2️⃣ No e-mail, anexe os seguintes documentos:
+RG/CPF;
+Certidão de Nascimento/Casamento;
+Título de eleitor;
+Quitação Eleitoral;
+Reservista(sexo masculino);
+Nada consta da biblioteca; 
+
+📨 Após o envio, o setor de protocolo encaminhará a emissão do documento. Para saber mais, entre em contato com o setor de atendimento do campus presencialmente.
+
+📌 Para solicitar documentos como boletim, declarações, histórico escolar, siga estas orientações:
+
+1️⃣ Acesse o link do Q-Acadêmico: https://qacademico.ifce.edu.br
+2️⃣ Realize o login com sua matrícula e senha
+3️⃣ Na tela inicial, clique em "Solicitar documentos"
+4️⃣ Em seguida, clique em "Nova Solitação"`;
+
+    await this.enviarMensagem(session, menuText);
+  }
+
+  /**
+   * Exibe a tela de justificativa de faltas
+   */
+  private async exibirJustificarFaltas(session: Session): Promise<void> {
+    const menuText = `📌 Para justificar sua falta, siga estas orientações:
+
+1️⃣ Envie um e-mail para: protocolo.tabuleiro@ifce.edu.br
+2️⃣ No e-mail, anexe um documento comprobatório (ex: atestado médico ou declaração da empresa)  
+3️⃣ No corpo do e-mail, informe os seguintes dados:
+   - Nome completo  
+   - Telefone  
+   - Curso  
+   - Número de matrícula  
+
+📨 Após o envio, o setor de protocolo analisará sua justificativa.
+
+
+Deseja fazer mais alguma coisa?
+0 - Menu principal
+1 - Encerrar atendimento`;
+
+    await this.enviarMensagem(session, menuText);
+  }
+
+  /**
+   * Exibe a tela de acompanhamento de processos
+   */
+  private async exibirAcompanharProcessos(session: Session): Promise<void> {
+    const menuText = `📌 Para se atualizar de algum processo que tenha solicitado, siga estas orientações:
+
+1️⃣ Acesse o site do SEI (Sistema Eletrônico de Informações): https://sei.ifce.edu.br/sei/modulos/pesquisa/md_pesq_processo_pesquisar.php?acao_externa=protocolo_pesquisar&acao_origem_externa=protocolo_pesquisar&id_orgao_acesso_externo=0
+2️⃣ Ao acessar, preencha os campos necessários do formulário para realizar a busca.
+
+
+Deseja fazer mais alguma coisa?
+0 - Menu principal
+1 - Encerrar atendimento`;
+
+    await this.enviarMensagem(session, menuText);
+  }
+
+  /**
+   * Exibe a tela de assistência estudantil
+   */
+  private async exibirAssistenciaEstudantil(session: Session): Promise<void> {
+    const menuText = `📚 Assistência Estudantil - IFCE Campus Tabuleiro do Norte
+
+Para informações sobre auxílios, bolsas e programas de assistência estudantil, entre em contato com o setor:
+
+📞 Telefone: (85) 2222-0023
+🔗 Link de atendimento: bit.ly/falarcomCAE2
+
+Deseja fazer mais alguma coisa?
+0 - Menu principal
+1 - Encerrar atendimento`;
+
+    await this.enviarMensagem(session, menuText);
+  }
+
+  /**
+   * Exibe a tela de cursos e formas de ingresso
+   */
+  private async exibirCursosIngresso(session: Session): Promise<void> {
+    const menuText = `🎓 Aqui você encontra informações sobre os cursos e como ingressar na instituição:
+
+📘 Cursos Disponíveis 
+Confira todos os cursos oferecidos atualmente no campus pelo link abaixo:  
+🔗 https://ifce.edu.br/tabuleirodonorte/campus_tabuleiro/cursos
+
+📝 Formas de Ingresso  
+Conheça as formas de ingresso disponíveis (ENEM, vestibular, transferência, etc):  
+🔗 https://ifce.edu.br/acesso-rapido/seja-nosso-aluno/
+
+❓ Caso tenha dúvidas, você pode falar com a equipe da secretaria.
+
+
+Deseja fazer mais alguma coisa?
+0 - Menu principal
+1 - Encerrar atendimento`;
+
+    await this.enviarMensagem(session, menuText);
+  }
+
+  /**
+   * Exibe a tela de comunicação com os setores
+   */
+  private async exibirComunicacaoSetores(session: Session): Promise<void> {
+    // Resetar a escolha do setor
+    await this.sessionService.updateUserData(session.userId, {
+      escolhaSetor: null,
+    });
+
+    const menuText = `👤 Você deseja falar com um atendente humano.  
+Por favor, informe com qual setor deseja conversar:
+
+1 - Comunicação  
+2 - Diretoria  
+3 - Coordenação  
+4 - Secretaria  
+0 - Voltar ao menu principal`;
+
+    await this.enviarMensagem(session, menuText);
+  }
+
+  /**
+   * Exibe a tela de coleta de dados para atendimento
+   */
+  private async exibirColetaDadosAtendimento(session: Session): Promise<void> {
+    const menuText = `Antes de te encaminhar para o setor ${session.userData.escolhaSetor}, preciso confirmar algumas informações:
+
+🧍 Nome completo:  
+📞 Telefone:  
+📧 E-mail:  
+🎓 Curso (se aplicável):  
+
+0 - Voltar ao menu principal`;
+
+    await this.enviarMensagem(session, menuText);
   }
 }

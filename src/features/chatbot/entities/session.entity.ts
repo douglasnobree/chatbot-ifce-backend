@@ -38,6 +38,12 @@ export class UserData {
     description: 'Mensagem original quando o usuário responde a uma mensagem',
   })
   lastQuotedMessage?: string;
+
+  @ApiProperty({
+    example: 'Secretaria',
+    description: 'Setor escolhido para comunicação',
+  })
+  escolhaSetor?: string;
 }
 
 export class AtendenteDados {
