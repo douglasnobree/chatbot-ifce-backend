@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Session, SessionState, UserData } from '../entities/session.entity';
-import { Prisma } from '@prisma/client';
+import { SessionState } from '@prisma/client';
+import { Prisma, Estudante } from '@prisma/client';
 
 @Injectable()
 export class SessionRepository {
@@ -11,13 +11,12 @@ export class SessionRepository {
   /**
    * Cria uma nova sessão no banco de dados
    */
-  async createNewSession(userId: string, instanceId: string): Promise<Session> {
+  async createNewSession(userId: string, instanceId: string) {
     try {
       this.logger.log(
         `Criando nova sessão no banco de dados para o usuário ${userId}`,
       );
-
-      const dbSession = await this.prisma.sessao.create({
+      return await this.prisma.sessao.create({
         data: {
           userId,
           estado: SessionState.MAIN_MENU,
@@ -30,31 +29,18 @@ export class SessionRepository {
           mensagens: true,
         },
       });
-
-      return this.mapDbSessionToSession(dbSession);
     } catch (error) {
       this.logger.error(
         `Erro ao criar nova sessão: ${error.message}`,
         error.stack,
       );
-
-      // Em caso de erro, retorna uma sessão em memória como fallback
-      return {
-        userId,
-        state: SessionState.MAIN_MENU,
-        userData: new UserData(),
-        lastInteractionTime: Date.now(),
-        instanceId,
-        esperandoResposta: false,
-      };
+      throw error;
     }
-  } /**
+  }
+  /**
    * Obtém uma sessão do banco de dados ou cria uma nova se não existir
    */
-  async getOrCreateSession(
-    userId: string,
-    instanceId: string,
-  ): Promise<Session> {
+  async getOrCreateSession(userId: string, instanceId: string) {
     console.log('getOrCreateSession', userId, instanceId);
     try {
       // Busca a sessão existente mais recente que não está expirada
@@ -122,10 +108,7 @@ export class SessionRepository {
         });
       }
 
-      // Converte o objeto do banco de dados para o formato esperado pela aplicação
-      const teste = this.mapDbSessionToSession(dbSession);
-      console.log('teste', teste);
-      return teste;
+      return dbSession;
     } catch (error) {
       this.logger.error(
         `Erro ao obter/criar sessão: ${error.message}`,
@@ -136,7 +119,6 @@ export class SessionRepository {
       return {
         userId,
         state: SessionState.MAIN_MENU,
-        userData: new UserData(),
         lastInteractionTime: Date.now(),
         instanceId,
         esperandoResposta: false,
@@ -146,10 +128,7 @@ export class SessionRepository {
   /**
    * Atualiza o estado da sessão no banco de dados
    */
-  async updateSessionState(
-    userId: string,
-    newState: SessionState,
-  ): Promise<Session | null> {
+  async updateSessionState(userId: string, newState: SessionState) {
     try {
       // Busca apenas sessões não expiradas
       const dbSession = await this.prisma.sessao.findFirst({
@@ -192,7 +171,7 @@ export class SessionRepository {
       this.logger.log(
         `Estado da sessão do usuário ${userId} atualizado para ${newState}`,
       );
-      return this.mapDbSessionToSession(updatedSession);
+      return updatedSession;
     } catch (error) {
       this.logger.error(
         `Erro ao atualizar estado da sessão: ${error.message}`,
@@ -208,7 +187,7 @@ export class SessionRepository {
     userId: string,
     conteudo: string,
     origem: 'USUARIO' | 'BOT',
-  ): Promise<void> {
+  ) {
     try {
       // Busca apenas sessões ativas (não expiradas)
       const dbSession = await this.prisma.sessao.findFirst({
@@ -256,10 +235,7 @@ export class SessionRepository {
   /**
    * Busca estudante pelo CPF e últimos dígitos do telefone
    */
-  async findStudentByCpfAndPhone(
-    cpf: string,
-    lastDigits: string,
-  ): Promise<UserData | null> {
+  async findStudentByCpfAndPhone(cpf: string, lastDigits: string) {
     try {
       const estudante = await this.prisma.estudante.findFirst({
         where: {
@@ -271,14 +247,7 @@ export class SessionRepository {
       });
 
       if (!estudante) return null;
-
-      return {
-        cpf: estudante.cpf,
-        telefone: estudante.telefone,
-        nome: estudante.nome,
-        curso: estudante.curso,
-        matricula: estudante.matricula,
-      };
+      return estudante;
     } catch (error) {
       this.logger.error(
         `Erro ao buscar estudante: ${error.message}`,
@@ -290,10 +259,7 @@ export class SessionRepository {
   /**
    * Atualiza os dados do estudante na sessão
    */
-  async updateUserData(
-    userId: string,
-    userData: UserData,
-  ): Promise<Session | null> {
+  async updateUserData(userId: string, userData: Partial<Estudante>) {
     try {
       // Primeiro, busca a sessão ativa
       const dbSession = await this.prisma.sessao.findFirst({
@@ -352,7 +318,7 @@ export class SessionRepository {
         },
       });
 
-      return this.mapDbSessionToSession(updatedSession);
+      return updatedSession;
     } catch (error) {
       this.logger.error(
         `Erro ao atualizar dados do usuário: ${error.message}`,
@@ -364,10 +330,7 @@ export class SessionRepository {
   /**
    * Atualiza os dados do usuário em uma sessão
    */
-  async updateSessionData(
-    userId: string,
-    userData: UserData,
-  ): Promise<Session> {
+  async updateSessionData(userId: string, userData: Partial<Estudante>) {
     try {
       // Busca a sessão ativa
       const dbSession = await this.prisma.sessao.findFirst({
@@ -404,7 +367,7 @@ export class SessionRepository {
               telefone: userData.telefone || estudante.telefone,
               curso: userData.curso || estudante.curso,
               matricula: userData.matricula || estudante.matricula,
-              last_quoted_message: userData.lastQuotedMessage,
+              last_quoted_message: userData.last_quoted_message,
             },
           });
         } else {
@@ -416,7 +379,7 @@ export class SessionRepository {
           //     telefone: userData.telefone,
           //     curso: userData.curso,
           //     matricula: userData.matricula,
-          //     last_quoted_message: userData.lastQuotedMessage,
+          //     last_quoted_message: userData.last_quoted_message,
           //     sessao: {
           //       connect: { id: dbSession.id },
           //     },
@@ -435,7 +398,7 @@ export class SessionRepository {
       });
 
       // Converte para o modelo Session
-      return this.mapDbSessionToSession(updatedDbSession);
+      return updatedDbSession;
     } catch (error) {
       this.logger.error(
         `Erro ao atualizar dados do usuário: ${error.message}`,
@@ -447,7 +410,7 @@ export class SessionRepository {
   /**
    * Encerra uma sessão (não exclui, apenas marca como finalizada)
    */
-  async encerrarSessao(userId: string): Promise<void> {
+  async encerrarSessao(userId: string) {
     try {
       // Busca a sessão ativa (não expirada)
       const dbSession = await this.prisma.sessao.findFirst({
@@ -488,7 +451,7 @@ export class SessionRepository {
   /**
    * Obtém as últimas mensagens de uma sessão para contexto
    */
-  async getSessionContext(userId: string, limit: number = 10): Promise<string> {
+  async getSessionContext(userId: string, limit: number = 10) {
     try {
       // Primeiro encontrar a sessão ativa
       const sessaoAtiva = await this.prisma.sessao.findFirst({
@@ -573,37 +536,7 @@ export class SessionRepository {
     }
   }
 
-  /**
-   * Função auxiliar para mapear um objeto de sessão do banco para o modelo da aplicação
-   */
-  private mapDbSessionToSession(dbSession: any): Session {
-    const userData = new UserData();
-    console.log('dbSession', dbSession);
-    if (dbSession.estudante) {
-      userData.nome = dbSession.estudante.nome;
-      userData.cpf = dbSession.estudante.cpf;
-      userData.telefone = dbSession.estudante.telefone;
-      userData.matricula = dbSession.estudante.matricula;
-      userData.curso = dbSession.estudante.curso;
-    }
-
-    // Converte o timestamp do banco para milissegundos
-    const lastInteraction = dbSession.ultima_interacao
-      ? new Date(dbSession.ultima_interacao).getTime()
-      : Date.now();
-
-    return {
-      userId: dbSession.userId,
-      state: dbSession.estado as SessionState,
-      userData,
-      lastInteractionTime: lastInteraction,
-      instanceId: dbSession.instanceName,
-      esperandoResposta: dbSession.esperando_resposta,
-      // Opcional: incluir um array com as últimas mensagens se necessário
-    };
-  }
-
-  async getLatestSession(userId: string): Promise<Session | null> {
+  async getLatestSession(userId: string) {
     try {
       const dbSession = await this.prisma.sessao.findFirst({
         where: {
@@ -623,7 +556,7 @@ export class SessionRepository {
 
       if (!dbSession) return null;
 
-      return this.mapDbSessionToSession(dbSession);
+      return dbSession;
     } catch (error) {
       this.logger.error(
         `Erro ao obter a última sessão do usuário ${userId}: ${error.message}`,

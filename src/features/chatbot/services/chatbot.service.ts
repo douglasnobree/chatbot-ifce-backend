@@ -1,7 +1,7 @@
 // filepath: c:\dev\chatbot-ifce-backend\src\features\chatbot\services\chatbot.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { SessionService } from './session.service';
-import { Session, SessionState } from '../entities/session.entity';
+import { SessionState } from '@prisma/client';
 import { WhatsappService } from '../../whatsapp/service/whatsapp.service';
 import { SendMessageDto } from '../../whatsapp/dto/send-message.dto';
 import { Cron } from '@nestjs/schedule';
@@ -12,6 +12,7 @@ import { HandlersFactory } from './handlers-factory.service';
 import { OperacoesBaseService } from './operacoes-base.service';
 import { EstatisticasService } from './estatisticas-db.service';
 import { NotificacoesService } from './notificacoes.service';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class ChatbotService {
@@ -73,7 +74,7 @@ export class ChatbotService {
 
         // Armazena a mensagem original na sessão para contexto
         await this.userDataService.updateUserData(remetente, {
-          lastQuotedMessage: mensagemOriginal,
+          last_quoted_message: mensagemOriginal,
         });
       }
 
@@ -93,20 +94,20 @@ export class ChatbotService {
   /**
    * Processa a mensagem com base no estado atual da sessão
    */ private async processarMensagemPorEstado(
-    session: Session,
+    session: Sessao,
     mensagem: string,
   ): Promise<void> {
     try {
       // Registra o acesso ao estado atual para estatísticas
-      this.estatisticasService.registrarAcessoMenu(session.state);
+      this.estatisticasService.registrarAcessoMenu(session.estado);
 
       // Se o estado for ENCERRAMENTO ou EXPIRED, exibe o menu principal
       if (
-        session.state === SessionState.ENCERRAMENTO ||
-        session.state === SessionState.EXPIRED
+        session.estado === SessionState.ENCERRAMENTO ||
+        session.estado === SessionState.EXPIRED
       ) {
         // Para sessões novas ou expiradas, envia mensagem de boas-vindas
-        const isReturningUser = session.state === SessionState.ENCERRAMENTO;
+        const isReturningUser = session.estado === SessionState.ENCERRAMENTO;
         await this.notificacoesService.enviarMensagemBoasVindas(
           session,
           isReturningUser,
@@ -117,7 +118,7 @@ export class ChatbotService {
       }
 
       // Obtém o handler adequado para o estado atual
-      const handler = this.handlersFactory.getHandler(session.state);
+      const handler = this.handlersFactory.getHandler(session.estado);
 
       // Processa a mensagem usando o handler
       await handler.processarMensagem(session, mensagem);

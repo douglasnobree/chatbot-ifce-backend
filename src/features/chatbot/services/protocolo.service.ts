@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session, SessionState } from '../entities/session.entity';
 import { MensagensService } from './mensagens.service';
 import { SessionService } from './session.service';
 import { UserDataService } from './user-data.service';
 import { MenuTexts, SuccessMessages } from '../constants/menu-texts';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class ProtocoloService {
@@ -30,7 +30,7 @@ export class ProtocoloService {
    * @param descricao Descrição do protocolo
    */
   async registrarProtocolo(
-    session: Session,
+    session: Sessao,
     setor: string,
     descricao?: string,
   ): Promise<string> {
@@ -59,7 +59,7 @@ export class ProtocoloService {
    * @param session Sessão do usuário
    * @param setor Setor do protocolo
    */
-  async confirmarProtocolo(session: Session, setor: string): Promise<void> {
+  async confirmarProtocolo(session: Sessao, setor: string): Promise<void> {
     try {
       const numeroProtocolo = await this.registrarProtocolo(session, setor);
 

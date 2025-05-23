@@ -23,6 +23,7 @@ model Estudante {
   matricula           String   @unique
   curso               String
   last_quoted_message String? // Última mensagem citada pelo usuário
+  escolhaSetor        String? // Setor escolhido para comunicação
   criado_em           DateTime @default(now())
   atualizado_em       DateTime @updatedAt
 
@@ -52,16 +53,38 @@ model Atendente {
   sessoes Sessao[]
 }
 
+enum SessionState {
+  MAIN_MENU
+  PROTOCOLO_MENU
+  CONSULTAR_MATRICULA
+  ASSISTENCIA_ESTUDANTIL
+  CURSOS_INGRESSO
+  COMUNICACAO_SETORES
+  ESPERANDO_CPF_TELEFONE
+  RESULTADO_CONSULTA
+  TRANCAMENTO_REABERTURA
+  EMITIR_DOCUMENTOS
+  JUSTIFICAR_FALTAS
+  ACOMPANHAR_PROCESSOS
+  CONSULTANDO_PROTOCOLO
+  REGISTRO_DOCUMENTO_PENDENTE
+  AGUARDANDO_RESPOSTA_SETOR
+  ATENDIMENTO_HUMANO
+  ENCERRAMENTO
+  EXPIRED
+  AGUARDANDO_DADOS_ATENDIMENTO
+}
+
 // Modelo para sessões de chat
 model Sessao {
-  id                 String   @id @default(uuid())
+  id                 String       @id @default(uuid())
   userId             String // ID do usuário no WhatsApp (ex: 5588999999999@s.whatsapp.net)
-  estado             String // Estado atual da sessão (ex: MAIN_MENU, CONSULTAR_MATRICULA)
-  ultima_interacao   DateTime @default(now())
+  estado             SessionState // Estado atual da sessão (ex: MAIN_MENU, CONSULTAR_MATRICULA)
+  ultima_interacao   DateTime     @default(now())
   instanceName       String // ID da instância do WhatsApp
-  esperando_resposta Boolean  @default(false)
-  criado_em          DateTime @default(now())
-  atualizado_em      DateTime @updatedAt
+  esperando_resposta Boolean      @default(false)
+  criado_em          DateTime     @default(now())
+  atualizado_em      DateTime     @updatedAt
 
   // Relacionamentos
   estudante_id String?

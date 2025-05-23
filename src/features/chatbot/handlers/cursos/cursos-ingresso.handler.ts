@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Session } from '../../entities/session.entity';
 import { MenuHandler } from '../../interfaces/handler.interface';
 import { MensagensService } from '../../services/mensagens.service';
 import { OperacoesBaseService } from '../../services/operacoes-base.service';
 import { MenuTexts } from '../../constants/menu-texts';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class CursosIngressoHandler implements MenuHandler {
@@ -15,7 +15,7 @@ export class CursosIngressoHandler implements MenuHandler {
   /**
    * Exibe o menu de cursos e formas de ingresso
    */
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.CURSOS_INGRESSO,
@@ -25,7 +25,7 @@ export class CursosIngressoHandler implements MenuHandler {
   /**
    * Processa a interação do usuário com o menu de cursos e ingresso
    */
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     const msgNormalizada = mensagem.trim().toLowerCase();
 
     switch (msgNormalizada) {

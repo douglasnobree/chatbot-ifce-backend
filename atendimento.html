@@ -1,0 +1,67 @@
+// Exemplo de frontend mínimo para testes do WebSocket // Salve como
+atendimento.html e abra no navegador
+
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Atendimento Humano - Chatbot IFCE</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  </head>
+  <body>
+    <h2>Chat de Atendimento</h2>
+    <div>
+      <label>Protocolo: <input id="protocolo" /></label>
+      <button onclick="entrar()">Entrar</button>
+    </div>
+    <div id="chat" style="display: none">
+      <div
+        id="mensagens"
+        style="
+          border: 1px solid #ccc;
+          height: 200px;
+          overflow: auto;
+          margin-bottom: 10px;
+        "
+      ></div>
+      <input id="msg" placeholder="Digite sua mensagem" />
+      <button onclick="enviar()">Enviar</button>
+    </div>
+    <script>
+      let socket;
+      let sessionId;
+      function entrar() {
+        sessionId = document.getElementById('protocolo').value;
+        socket = io('http://localhost:3000');
+        socket.emit('iniciarAtendimento', { sessionId, setor: 'Comunicação' });
+        document.getElementById('chat').style.display = '';
+        socket.on('atendimentoAguardando', (data) =>
+          addMsg('Sistema', data.message),
+        );
+        socket.on('atendenteEntrou', (data) =>
+          addMsg('Sistema', `Atendente ${data.nome} entrou (${data.setor})`),
+        );
+        socket.on('novaMensagem', (data) =>
+          addMsg(
+            data.sender === 'atendente' ? 'Atendente' : 'Você',
+            data.mensagem,
+          ),
+        );
+      }
+      function enviar() {
+        const mensagem = document.getElementById('msg').value;
+        socket.emit('enviarMensagem', {
+          sessionId,
+          mensagem,
+          sender: 'usuario',
+        });
+        document.getElementById('msg').value = '';
+      }
+      function addMsg(remetente, texto) {
+        const div = document.getElementById('mensagens');
+        div.innerHTML += `<b>${remetente}:</b> ${texto}<br/>`;
+        div.scrollTop = div.scrollHeight;
+      }
+    </script>
+  </body>
+</html>

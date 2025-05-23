@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session, SessionState, UserData } from '../entities/session.entity';
+import { SessionState } from '@prisma/client';
 import { SessionRepository } from '../repositories/session.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MessageService } from './message.service';
-import { UserDataService } from './user-data.service';
 import { WhatsAppSessionService } from './whatsapp-session.service';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class SessionService {
   private readonly logger = new Logger(SessionService.name);
   private readonly SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutos em milissegundos
-  private sessions: Map<string, Session> = new Map(); // Cache em memória para sessões ativas
+  private sessions: Map<string, any> = new Map(); // Cache em memória para sessões ativas
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -20,10 +20,7 @@ export class SessionService {
   ) {} /**
    * Obtém uma sessão existente ou cria uma nova se não existir ou estiver expirada
    */
-  async getOrCreateSession(
-    userId: string,
-    instanceId: string,
-  ): Promise<Session> {
+  async getOrCreateSession(userId: string, instanceId: string): Promise<any> {
     try {
       // Primeiro verifica no cache em memória
       let session = this.sessions.get(userId);
@@ -61,7 +58,6 @@ export class SessionService {
       return {
         userId,
         state: SessionState.MAIN_MENU,
-        userData: new UserData(),
         lastInteractionTime: Date.now(),
         instanceId,
         esperandoResposta: false,
@@ -75,7 +71,7 @@ export class SessionService {
   async updateSessionState(
     userId: string,
     newState: SessionState,
-  ): Promise<Session | null> {
+  ): Promise<any> {
     try {
       // Atualiza no banco de dados
       const session = await this.sessionRepository.updateSessionState(
@@ -144,7 +140,7 @@ export class SessionService {
     }
   }
 
-  async getLatestSession(userId: string): Promise<Session | null> {
+  async getLatestSession(userId: string): Promise<any> {
     try {
       // Verifica no cache em memória
       let session = this.sessions.get(userId);
@@ -172,7 +168,7 @@ export class SessionService {
    * Verifica e limpa sessões expiradas
    * @returns Número de sessões limpas
    */
-   async cleanExpiredSessions(): Promise<number> {
+  async cleanExpiredSessions(): Promise<number> {
     try {
       // Marca sessões expiradas no cache em memória e no banco
       const now = Date.now();

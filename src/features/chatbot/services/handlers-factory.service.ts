@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SessionState } from '../entities/session.entity';
+import { SessionState } from '@prisma/client';
 import { MenuHandler } from '../interfaces/handler.interface';
 import { MainMenuHandler } from '../handlers/main-menu.handler';
 import { ProtocoloMenuHandler } from '../handlers/protocolo/protocolo-menu.handler';
@@ -63,6 +63,7 @@ export class HandlersFactory {
       case SessionState.COMUNICACAO_SETORES:
       case SessionState.AGUARDANDO_RESPOSTA_SETOR:
       case SessionState.ATENDIMENTO_HUMANO:
+      case SessionState.AGUARDANDO_DADOS_ATENDIMENTO:
         return this.comunicacaoSetoresHandler;
 
       // Trancamento ou Reabertura

@@ -30,6 +30,7 @@ import {
 } from './handlers/protocolo/outros-handlers';
 import { RegistroDocumentosHandler } from './handlers/documentos/registro-documentos.handler';
 import { ProcessosAcompanhamentoHandler } from './handlers/processos/processos-acompanhamento.handler';
+import { AtendimentoGateway } from './handlers/comunicacao/atendimento.gateway';
 
 import { EstatisticasController } from './controllers/estatisticas.controller';
 
@@ -66,6 +67,7 @@ import { EstatisticasController } from './controllers/estatisticas.controller';
     AcompanharProcessosHandler,
     RegistroDocumentosHandler,
     ProcessosAcompanhamentoHandler,
+    AtendimentoGateway,
   ],
   exports: [
     ChatbotService,

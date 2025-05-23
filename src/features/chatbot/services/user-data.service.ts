@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UserData } from '../entities/session.entity';
 import { SessionRepository } from '../repositories/session.repository';
-import { Session } from '../entities/session.entity';
+import { Estudante } from '@prisma/client';
 
 @Injectable()
 export class UserDataService {
@@ -14,16 +13,16 @@ export class UserDataService {
    */
   async updateUserData(
     userId: string,
-    userData: Partial<UserData>,
-    cachedSession?: Session | null,
-  ): Promise<Session | null> {
+    userData: Partial<Estudante>,
+    cachedSession?: any,
+  ) {
     try {
       if (cachedSession) {
         // Mescla os dados atuais com os novos dados
         const updatedUserData = {
-          ...cachedSession.userData,
+          ...cachedSession.estudante,
           ...userData,
-        } as UserData;
+        };
 
         // Atualiza no banco de dados
         return await this.sessionRepository.updateUserData(
@@ -48,7 +47,7 @@ export class UserDataService {
   async findUserByCpfAndPhone(
     cpf: string,
     phone: string,
-  ): Promise<UserData | null> {
+  ): Promise<Estudante | null> {
     try {
       // Extrai apenas os 4 últimos dígitos do telefone
       const lastDigits = phone.slice(-4);
@@ -64,17 +63,6 @@ export class UserDataService {
         error.stack,
       );
 
-      // Fallback para dados fixos em caso de erro
-      if (cpf === '12345678910' && phone.endsWith('2345')) {
-        return {
-          cpf,
-          telefone: phone,
-          nome: 'Ana Silva',
-          curso: 'Engenharia Civil',
-          matricula: '2023123456',
-        };
-      }
-
       return null;
     }
   }
@@ -82,10 +70,7 @@ export class UserDataService {
   /**
    * Atualiza os dados do usuário em uma sessão
    */
-  async updateSessionData(
-    userId: string,
-    userData: UserData,
-  ): Promise<Session | null> {
+  async updateSessionData(userId: string, userData: Partial<Estudante>) {
     try {
       // Atualiza no banco de dados
       return await this.sessionRepository.updateSessionData(userId, userData);
@@ -97,4 +82,10 @@ export class UserDataService {
       return null;
     }
   }
+
+  /**
+   * ATENÇÃO: O campo 'escolhaSetor' não existe no modelo Estudante do Prisma.
+   * Se for necessário persistir essa informação, adicione o campo ao schema.prisma e gere uma migration.
+   * Por enquanto, updateUserData só atualiza campos existentes em Estudante.
+   */
 }

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { Session } from '../../entities/session.entity';
+import {  } from '../../entities/session.entity';
 import { MenuTexts } from '../../constants/menu-texts';
 import { MensagensService } from '../../services/mensagens.service';
 import { OperacoesBaseService } from '../../services/operacoes-base.service';
 import { MenuHandler } from '../../interfaces/handler.interface';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class TrancamentoReaberturaHandler implements MenuHandler {
@@ -12,14 +13,14 @@ export class TrancamentoReaberturaHandler implements MenuHandler {
     private readonly operacoesBaseService: OperacoesBaseService,
   ) {}
 
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.TRANCAMENTO_REABERTURA,
     );
   }
 
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     switch (mensagem) {
       case '0':
         // Menu principal
@@ -46,14 +47,14 @@ export class EmitirDocumentosHandler implements MenuHandler {
     private readonly operacoesBaseService: OperacoesBaseService,
   ) {}
 
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.EMITIR_DOCUMENTOS,
     );
   }
 
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     switch (mensagem) {
       case '0':
         // Menu principal
@@ -80,14 +81,14 @@ export class JustificarFaltasHandler implements MenuHandler {
     private readonly operacoesBaseService: OperacoesBaseService,
   ) {}
 
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.JUSTIFICAR_FALTAS,
     );
   }
 
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     switch (mensagem) {
       case '0':
         // Menu principal
@@ -114,14 +115,14 @@ export class AcompanharProcessosHandler implements MenuHandler {
     private readonly operacoesBaseService: OperacoesBaseService,
   ) {}
 
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.ACOMPANHAR_PROCESSOS,
     );
   }
 
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     switch (mensagem) {
       case '0':
         // Menu principal

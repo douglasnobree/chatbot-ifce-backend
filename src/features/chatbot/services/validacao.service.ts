@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session } from '../entities/session.entity';
 
 @Injectable()
 export class ValidacaoService {

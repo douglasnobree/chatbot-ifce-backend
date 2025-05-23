@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session } from '../entities/session.entity';
 import { WhatsappService } from '../../whatsapp/service/whatsapp.service';
 import { SendMessageDto } from '../../whatsapp/dto/send-message.dto';
 import { MessageService } from './message.service';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class MensagensService {
@@ -18,7 +18,7 @@ export class MensagensService {
    * @param session Sessão do usuário
    * @param texto Texto a ser enviado
    */
-  async enviarMensagem(session: Session, texto: string): Promise<void> {
+  async enviarMensagem(session: Sessao, texto: string): Promise<void> {
     try {
       // Prepara os dados da mensagem
       const mensagem: SendMessageDto = {
@@ -29,7 +29,7 @@ export class MensagensService {
       };
 
       // Envia a mensagem
-      await this.whatsappService.sendMessage(mensagem, session.instanceId);
+      await this.whatsappService.sendMessage(mensagem, session.instanceName);
 
       // Salva a mensagem no histórico
       await this.messageService.saveMessage(session.userId, texto, 'BOT');

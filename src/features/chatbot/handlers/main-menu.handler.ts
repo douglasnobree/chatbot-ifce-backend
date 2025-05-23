@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Session, SessionState } from '../entities/session.entity';
+import { SessionState } from '@prisma/client';
 import { MenuHandler } from '../interfaces/handler.interface';
 import { SessionService } from '../services/session.service';
 import { MensagensService } from '../services/mensagens.service';
 import { OperacoesBaseService } from '../services/operacoes-base.service';
 import { MenuTexts } from '../constants/menu-texts';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class MainMenuHandler implements MenuHandler {
@@ -17,14 +18,14 @@ export class MainMenuHandler implements MenuHandler {
   /**
    * Exibe o menu principal
    */
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.operacoesBaseService.exibirMenuPrincipal(session);
   }
 
   /**
    * Processa a interação do usuário com o menu principal
    */
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     const msgNormalizada = mensagem.trim().toLowerCase();
 
     switch (msgNormalizada) {

@@ -28,67 +28,9 @@ export enum SessionState {
   // Estados de sistema/controle
   ENCERRAMENTO = 'ENCERRAMENTO',
   EXPIRED = 'EXPIRED',
+
+  // Novo estado para controle de fluxo de atendimento humano
+  AGUARDANDO_DADOS_ATENDIMENTO = 'AGUARDANDO_DADOS_ATENDIMENTO',
 }
 
-export class UserData {
-  @ApiProperty({ example: '12345678910' })
-  cpf?: string;
-
-  @ApiProperty({ example: '1234' })
-  telefone?: string;
-
-  @ApiProperty({ example: 'João Silva' })
-  nome?: string;
-
-  @ApiProperty({ example: 'Análise e Desenvolvimento de Sistemas' })
-  curso?: string;
-
-  @ApiProperty({ example: '2023123456' })
-  matricula?: string;
-
-  @ApiProperty({
-    example: 'to arrumando os milhoes de projeto q tem q fzr ja',
-    description: 'Mensagem original quando o usuário responde a uma mensagem',
-  })
-  lastQuotedMessage?: string;
-
-  @ApiProperty({
-    example: 'Secretaria',
-    description: 'Setor escolhido para comunicação',
-  })
-  escolhaSetor?: string;
-}
-
-export class AtendenteDados {
-  @ApiProperty({ example: '12345' })
-  id?: string;
-
-  @ApiProperty({ example: 'Maria Souza' })
-  nome?: string;
-
-  @ApiProperty({ example: 'maria.souza@ifce.edu.br' })
-  email?: string;
-}
-
-export class Session {
-  @ApiProperty({ example: '558899999999@s.whatsapp.net' })
-  userId: string;
-
-  @ApiProperty({ example: 'MAIN_MENU', enum: SessionState })
-  state: SessionState;
-
-  @ApiProperty({ type: UserData })
-  userData: UserData;
-
-  @ApiProperty({ type: AtendenteDados })
-  atendente?: AtendenteDados;
-
-  @ApiProperty({ example: 1610000000000 })
-  lastInteractionTime: number;
-
-  @ApiProperty({ example: 'instance-123' })
-  instanceId: string;
-
-  @ApiProperty({ example: false })
-  esperandoResposta: boolean;
-}
+// as classes UserData, AtendenteDados e Session foram removidas. Os dados agora são tratados diretamente via Prisma.

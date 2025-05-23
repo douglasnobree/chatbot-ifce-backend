@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session, SessionState } from '../../entities/session.entity';
+import {  SessionState } from '../../entities/session.entity';
 import { MenuHandler } from '../../interfaces/handler.interface';
 import { MensagensService } from '../../services/mensagens.service';
 import { OperacoesBaseService } from '../../services/operacoes-base.service';
@@ -7,6 +7,7 @@ import { SessionService } from '../../services/session.service';
 import { ValidacaoService } from '../../services/validacao.service';
 import { ProtocoloService } from '../../services/protocolo.service';
 import { MenuTexts } from '../../constants/menu-texts';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class RegistroDocumentosHandler implements MenuHandler {
@@ -23,7 +24,7 @@ export class RegistroDocumentosHandler implements MenuHandler {
   /**
    * Exibe o menu de registro de documentos
    */
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.EMITIR_DOCUMENTOS,
@@ -33,7 +34,7 @@ export class RegistroDocumentosHandler implements MenuHandler {
   /**
    * Processa a interação do usuário com o menu de documentos
    */
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     const msgNormalizada = mensagem.trim().toLowerCase();
 
     switch (msgNormalizada) {
@@ -48,7 +49,7 @@ export class RegistroDocumentosHandler implements MenuHandler {
         break;
 
       default:
-        if (session.state === SessionState.REGISTRO_DOCUMENTO_PENDENTE) {
+        if (session.estado === SessionState.REGISTRO_DOCUMENTO_PENDENTE) {
           // Processa o formulário enviado pelo usuário
           await this.processarFormularioDocumentos(session, mensagem);
         } else {
@@ -64,7 +65,7 @@ export class RegistroDocumentosHandler implements MenuHandler {
    * Processa o formulário de documentos enviado pelo usuário
    */
   private async processarFormularioDocumentos(
-    session: Session,
+    session: Sessao,
     mensagem: string,
   ): Promise<void> {
     try {

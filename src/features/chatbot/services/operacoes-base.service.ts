@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session, SessionState } from '../entities/session.entity';
 import { SessionService } from './session.service';
 import { MensagensService } from './mensagens.service';
 import { MenuTexts } from '../constants/menu-texts';
+import { Sessao, SessionState } from '@prisma/client';
 
 @Injectable()
 export class OperacoesBaseService {
@@ -16,7 +16,7 @@ export class OperacoesBaseService {
   /**
    * Encerra o atendimento do usuário
    */
-  async encerrarAtendimento(session: Session): Promise<void> {
+  async encerrarAtendimento(session: Sessao): Promise<void> {
     await this.sessionService.updateSessionState(
       session.userId,
       SessionState.ENCERRAMENTO,
@@ -31,7 +31,7 @@ export class OperacoesBaseService {
   /**
    * Volta para o menu principal
    */
-  async voltarMenuPrincipal(session: Session): Promise<void> {
+  async voltarMenuPrincipal(session: Sessao): Promise<void> {
     await this.sessionService.updateSessionState(
       session.userId,
       SessionState.MAIN_MENU,
@@ -42,7 +42,7 @@ export class OperacoesBaseService {
   /**
    * Exibe o menu principal
    */
-  async exibirMenuPrincipal(session: Session): Promise<void> {
+  async exibirMenuPrincipal(session: Sessao): Promise<void> {
     // Atualiza o estado da sessão
     await this.sessionService.updateSessionState(
       session.userId,
@@ -57,7 +57,7 @@ export class OperacoesBaseService {
    * Exibe uma mensagem de opção inválida e em seguida o menu especificado
    */
   async exibirOpcaoInvalida(
-    session: Session,
+    session: Sessao,
     exibirMenu: () => Promise<void>,
   ): Promise<void> {
     await this.mensagensService.enviarMensagem(

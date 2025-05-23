@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session, SessionState } from '../../entities/session.entity';
+import {  SessionState } from '../../entities/session.entity';
 import { MenuHandler } from '../../interfaces/handler.interface';
 import { MensagensService } from '../../services/mensagens.service';
 import { OperacoesBaseService } from '../../services/operacoes-base.service';
 import { SessionService } from '../../services/session.service';
 import { MenuTexts } from '../../constants/menu-texts';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class ProcessosAcompanhamentoHandler implements MenuHandler {
@@ -19,7 +20,7 @@ export class ProcessosAcompanhamentoHandler implements MenuHandler {
   /**
    * Exibe o menu de acompanhamento de processos
    */
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.ACOMPANHAR_PROCESSOS,
@@ -29,7 +30,7 @@ export class ProcessosAcompanhamentoHandler implements MenuHandler {
   /**
    * Processa a interação do usuário com o menu de acompanhamento de processos
    */
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     const msgNormalizada = mensagem.trim().toLowerCase();
 
     switch (msgNormalizada) {
@@ -51,7 +52,7 @@ export class ProcessosAcompanhamentoHandler implements MenuHandler {
         break;
 
       default:
-        if (session.state === SessionState.CONSULTANDO_PROTOCOLO) {
+        if (session.estado === SessionState.CONSULTANDO_PROTOCOLO) {
           // Tenta interpretar como número de protocolo
           await this.consultarProtocolo(session, mensagem);
         } else {
@@ -66,7 +67,7 @@ export class ProcessosAcompanhamentoHandler implements MenuHandler {
   /**
    * Solicita ao usuário um número de protocolo para consulta
    */
-  private async solicitarNumeroProtocolo(session: Session): Promise<void> {
+  private async solicitarNumeroProtocolo(session: Sessao): Promise<void> {
     try {
       // Atualiza o estado para esperar pelo número do protocolo
       await this.sessionService.updateSessionState(
@@ -93,7 +94,7 @@ export class ProcessosAcompanhamentoHandler implements MenuHandler {
    * Consulta um protocolo pelo número informado
    */
   private async consultarProtocolo(
-    session: Session,
+    session: Sessao,
     numeroProtocolo: string,
   ): Promise<void> {
     try {

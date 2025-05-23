@@ -1,0 +1,124 @@
+<!-- Painel do Atendente para visualizar e entrar em atendimentos abertos -->
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Painel do Atendente - Chatbot IFCE</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      #atendimentos {
+        margin-bottom: 20px;
+      }
+      #mensagens {
+        border: 1px solid #ccc;
+        height: 200px;
+        overflow: auto;
+        margin-bottom: 10px;
+      }
+      .atendimento {
+        margin-bottom: 5px;
+      }
+      .atendimento button {
+        margin-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Painel do Atendente</h2>
+    <div>
+      <label>Seu nome: <input id="nomeAtendente" /></label>
+      <label>Setor: <input id="setorAtendente" value="Comunicação" /></label>
+      <button onclick="conectarPainel()">Conectar</button>
+    </div>
+    <div id="painel" style="display: none">
+      <h3>Atendimentos Abertos</h3>
+      <div id="atendimentos"></div>
+      <div id="chat" style="display: none">
+        <h4>Chat com usuário (Protocolo: <span id="protocoloAtual"></span>)</h4>
+        <div id="mensagens"></div>
+        <input id="msg" placeholder="Digite sua mensagem" />
+        <button onclick="enviar()">Enviar</button>
+      </div>
+    </div>
+    <script>
+      let socket;
+      let atendimentosAbertos = [];
+      let sessionIdAtual = null;
+      let nomeAtendente = '';
+      let setorAtendente = '';
+
+      function conectarPainel() {
+        nomeAtendente = document.getElementById('nomeAtendente').value;
+        setorAtendente = document.getElementById('setorAtendente').value;
+        socket = io('http://localhost:3000');
+        document.getElementById('painel').style.display = '';
+        buscarAtendimentos();
+        setInterval(buscarAtendimentos, 3000); // Atualiza lista a cada 3s
+      }
+
+      function buscarAtendimentos() {
+        // Simulação: busca atendimentos abertos via evento (ideal: API REST ou evento real do backend)
+        socket.emit('listarAtendimentos');
+      }
+
+      // Recebe lista de atendimentos abertos
+      socket &&
+        socket.on &&
+        socket.on('atendimentosAbertos', (data) => {
+          atendimentosAbertos = data;
+          renderAtendimentos();
+        });
+
+      function renderAtendimentos() {
+        const div = document.getElementById('atendimentos');
+        div.innerHTML = '';
+        if (!atendimentosAbertos.length) {
+          div.innerHTML = '<i>Nenhum atendimento aguardando...</i>';
+          return;
+        }
+        atendimentosAbertos.forEach((at) => {
+          const el = document.createElement('div');
+          el.className = 'atendimento';
+          el.innerHTML = `Protocolo: <b>${at.sessionId}</b> | Setor: ${at.setor} <button onclick="entrarAtendimento('${at.sessionId}', '${at.setor}')">Atender</button>`;
+          div.appendChild(el);
+        });
+      }
+
+      function entrarAtendimento(sessionId, setor) {
+        sessionIdAtual = sessionId;
+        document.getElementById('protocoloAtual').innerText = sessionId;
+        document.getElementById('chat').style.display = '';
+        socket.emit('entrarAtendimento', {
+          sessionId,
+          nome: nomeAtendente,
+          setor,
+        });
+        socket.on('novaMensagem', (data) =>
+          addMsg(
+            data.sender === 'usuario' ? 'Usuário' : nomeAtendente,
+            data.mensagem,
+          ),
+        );
+      }
+
+      function enviar() {
+        const mensagem = document.getElementById('msg').value;
+        socket.emit('enviarMensagem', {
+          sessionId: sessionIdAtual,
+          mensagem,
+          sender: 'atendente',
+        });
+        document.getElementById('msg').value = '';
+      }
+
+      function addMsg(remetente, texto) {
+        const div = document.getElementById('mensagens');
+        div.innerHTML += `<b>${remetente}:</b> ${texto}<br/>`;
+        div.scrollTop = div.scrollHeight;
+      }
+    </script>
+  </body>
+</html>

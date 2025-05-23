@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session, SessionState } from '../../entities/session.entity';
+import {  SessionState } from '../../entities/session.entity';
 import { MenuHandler } from '../../interfaces/handler.interface';
 import { SessionService } from '../../services/session.service';
 import { MensagensService } from '../../services/mensagens.service';
@@ -10,6 +10,7 @@ import {
   ErrorMessages,
   SuccessMessages,
 } from '../../constants/menu-texts';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class ConsultaMatriculaHandler implements MenuHandler {
@@ -25,7 +26,7 @@ export class ConsultaMatriculaHandler implements MenuHandler {
   /**
    * Exibe o menu de consulta de matrícula
    */
-  async exibirMenu(session: Session): Promise<void> {
+  async exibirMenu(session: Sessao): Promise<void> {
     await this.mensagensService.enviarMensagem(
       session,
       MenuTexts.CONSULTA_MATRICULA,
@@ -41,11 +42,11 @@ export class ConsultaMatriculaHandler implements MenuHandler {
   /**
    * Processa a entrada do usuário com CPF e telefone
    */
-  async processarMensagem(session: Session, mensagem: string): Promise<void> {
+  async processarMensagem(session: Sessao, mensagem: string): Promise<void> {
     // Verificar se estamos no estado de esperar dados ou de mostrar resultados
-    if (session.state === SessionState.ESPERANDO_CPF_TELEFONE) {
+    if (session.estado === SessionState.ESPERANDO_CPF_TELEFONE) {
       await this.processarEntradaCpfTelefone(session, mensagem);
-    } else if (session.state === SessionState.RESULTADO_CONSULTA) {
+    } else if (session.estado === SessionState.RESULTADO_CONSULTA) {
       await this.processarResultadoConsulta(session, mensagem);
     }
   }
@@ -54,7 +55,7 @@ export class ConsultaMatriculaHandler implements MenuHandler {
    * Processa o input de CPF e telefone
    */
   private async processarEntradaCpfTelefone(
-    session: Session,
+    session: Sessao,
     mensagem: string,
   ): Promise<void> {
     // Verifica se é para voltar ao menu principal
@@ -159,11 +160,11 @@ export class ConsultaMatriculaHandler implements MenuHandler {
    * Processa a resposta após consulta de matrícula
    */
   private async processarResultadoConsulta(
-    session: Session,
+    session: Sessao,
     mensagem: string,
   ): Promise<void> {
     // Verifica se o usuário foi encontrado ou não pelo estado dos dados
-    const usuarioEncontrado = !!session.userData.matricula;
+    const usuarioEncontrado = !!session.estudante_id
 
     if (usuarioEncontrado) {
       // Fluxo para quando o usuário foi encontrado

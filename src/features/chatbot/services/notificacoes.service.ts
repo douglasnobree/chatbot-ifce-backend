@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Session } from '../entities/session.entity';
 import { MensagensService } from './mensagens.service';
 import { SessionService } from './session.service';
+import { Sessao } from '@prisma/client';
 
 @Injectable()
 export class NotificacoesService {
@@ -17,7 +17,7 @@ export class NotificacoesService {
    * @param session Sessão do usuário
    * @param mensagem Mensagem do lembrete
    */
-  async enviarLembrete(session: Session, mensagem: string): Promise<void> {
+  async enviarLembrete(session: Sessao, mensagem: string): Promise<void> {
     try {
       await this.mensagensService.enviarMensagem(
         session,
@@ -72,14 +72,14 @@ export class NotificacoesService {
    * @param isReturningUser Se é um usuário que já usou o sistema antes
    */
   async enviarMensagemBoasVindas(
-    session: Session,
+    session: Sessao,
     isReturningUser: boolean,
   ): Promise<void> {
     try {
       let mensagem: string;
 
-      if (isReturningUser && session.userData.nome) {
-        mensagem = `👋 Olá novamente, ${session.userData.nome}! Bem-vindo(a) de volta ao atendimento virtual do IFCE Campus Tabuleiro do Norte.`;
+      if (isReturningUser) {
+        mensagem = `👋 Olá novamente, Bem-vindo(a) de volta ao atendimento virtual do IFCE Campus Tabuleiro do Norte.`;
       } else {
         mensagem = `👋 Olá! Bem-vindo(a) ao atendimento virtual do IFCE Campus Tabuleiro do Norte.`;
       }
@@ -97,7 +97,7 @@ export class NotificacoesService {
    * Envia uma mensagem de inatividade quando o usuário fica muito tempo sem interagir
    * @param session Sessão do usuário
    */
-  async enviarMensagemInatividade(session: Session): Promise<void> {
+  async enviarMensagemInatividade(session: Sessao): Promise<void> {
     try {
       await this.mensagensService.enviarMensagem(
         session,

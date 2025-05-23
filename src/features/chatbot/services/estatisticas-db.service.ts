@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SessionState } from '../entities/session.entity';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Cron } from '@nestjs/schedule';
 import {
@@ -7,6 +6,7 @@ import {
   SessionStatistic,
   EstatisticasRelatorioPeriodo,
 } from '../interfaces/estatisticas.interface';
+import { SessionState } from '@prisma/client';
 
 @Injectable()
 export class EstatisticasService {
