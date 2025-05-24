@@ -13,6 +13,7 @@ import { OperacoesBaseService } from './operacoes-base.service';
 import { EstatisticasService } from './estatisticas-db.service';
 import { NotificacoesService } from './notificacoes.service';
 import { Sessao } from '@prisma/client';
+import { AtendimentoGateway } from '../handlers/comunicacao/atendimento.gateway';
 
 @Injectable()
 export class ChatbotService {
@@ -28,6 +29,7 @@ export class ChatbotService {
     private readonly operacoesBaseService: OperacoesBaseService,
     private readonly estatisticasService: EstatisticasService,
     private readonly notificacoesService: NotificacoesService,
+    private readonly atendimentoGateway: AtendimentoGateway,
   ) {}
 
   /**
@@ -69,17 +71,19 @@ export class ChatbotService {
       );
 
       // Se for uma resposta a outra mensagem, registramos isso no log
-      if (mensagemOriginal) {
-        this.logger.log(`Mensagem é uma resposta a: "${mensagemOriginal}"`);
-
-        // Armazena a mensagem original na sessão para contexto
-        await this.userDataService.updateUserData(remetente, {
-          last_quoted_message: mensagemOriginal,
-        });
-      }
 
       // Salva a mensagem recebida no banco de dados
-      await this.messageService.saveMessage(remetente, mensagem, 'USUARIO');
+      await this.messageService.saveMessage(remetente, mensagem, 'USUARIO'); // Se o estado da sessão for ATENDIMENTO_HUMANO, encaminha a mensagem para o gateway
+      if (session.estado === SessionState.ATENDIMENTO_HUMANO) {
+        this.logger.log(
+          `Encaminhando mensagem do usuário para o atendimento humano: ${session.id}`,
+        );
+        await this.atendimentoGateway.processarMensagemWhatsApp(
+          session,
+          mensagem,
+        );
+        return;
+      }
 
       // Processa a mensagem com base no estado atual da sessão
       await this.processarMensagemPorEstado(session, mensagem);

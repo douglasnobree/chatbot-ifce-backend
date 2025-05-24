@@ -15,20 +15,14 @@ datasource db {
 
 // Modelo para estudantes
 model Estudante {
-  id                  String   @id @default(uuid())
-  nome                String
-  cpf                 String   @unique
-  telefone            String
-  email               String?
-  matricula           String   @unique
-  curso               String
-  last_quoted_message String? // Última mensagem citada pelo usuário
-  escolhaSetor        String? // Setor escolhido para comunicação
-  criado_em           DateTime @default(now())
-  atualizado_em       DateTime @updatedAt
-
-  // Relacionamentos
-  sessoes Sessao[]
+  id           String      @id @default(uuid())
+  nome         String
+  telefone     String      @unique
+  email        String      @unique
+  curso        String
+  escolhaSetor String?
+  sessoes      Sessao[]
+  protocolos   Protocolo[]
 }
 
 model WhatsAppSession {
@@ -50,7 +44,8 @@ model Atendente {
   atualizado_em DateTime @updatedAt
 
   // Relacionamentos
-  sessoes Sessao[]
+  sessoes    Sessao[]
+  protocolos Protocolo[]
 }
 
 enum SessionState {
@@ -88,10 +83,11 @@ model Sessao {
 
   // Relacionamentos
   estudante_id String?
-  estudante    Estudante? @relation(fields: [estudante_id], references: [id])
+  estudante    Estudante?  @relation(fields: [estudante_id], references: [id])
   atendente_id String?
-  atendente    Atendente? @relation(fields: [atendente_id], references: [id])
+  atendente    Atendente?  @relation(fields: [atendente_id], references: [id])
   mensagens    Mensagem[]
+  protocolos   Protocolo[]
 }
 
 // Modelo para mensagens
@@ -129,4 +125,36 @@ model MenuAcesso {
   // Relacionamentos
   estatistica_id String
   estatistica    Estatistica @relation(fields: [estatistica_id], references: [id])
+}
+
+// Modelo para armazenar protocolos de atendimento em tempo real
+model Protocolo {
+  id              String    @id @default(uuid())
+  numero          String    @unique // Número do protocolo exibido ao usuário
+  status          String    @default("ABERTO") // ABERTO, EM_ATENDIMENTO, FECHADO, CANCELADO
+  assunto         String?
+  setor           String
+  data_criacao    DateTime  @default(now())
+  data_fechamento DateTime?
+
+  // Relacionamentos
+  sessao_id           String?
+  sessao              Sessao?             @relation(fields: [sessao_id], references: [id])
+  estudante_id        String?
+  estudante           Estudante?          @relation(fields: [estudante_id], references: [id])
+  atendente_id        String?
+  atendente           Atendente?          @relation(fields: [atendente_id], references: [id])
+  mensagens_protocolo MensagemProtocolo[]
+}
+
+// Modelo para armazenar as mensagens dos protocolos
+model MensagemProtocolo {
+  id        String   @id @default(uuid())
+  conteudo  String
+  origem    String // "USUARIO", "ATENDENTE", "SISTEMA"
+  timestamp DateTime @default(now())
+
+  // Relacionamentos
+  protocolo_id String
+  protocolo    Protocolo @relation(fields: [protocolo_id], references: [id])
 }

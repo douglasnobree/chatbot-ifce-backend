@@ -239,7 +239,6 @@ export class SessionRepository {
     try {
       const estudante = await this.prisma.estudante.findFirst({
         where: {
-          cpf,
           telefone: {
             endsWith: lastDigits,
           },
@@ -280,24 +279,34 @@ export class SessionRepository {
         );
         return null;
       }
-
+      console.log('dbSession', userData, userId);
       // Verifica se o estudante já existe pelo CPF
       let estudante = await this.prisma.estudante.findUnique({
-        where: { cpf: userData.cpf },
+        where: { telefone: userId },
       });
 
-      // Se não existir, cria um novo estudante
-      if (!estudante && userData.cpf) {
+      if (!estudante) {
         estudante = await this.prisma.estudante.create({
           data: {
-            nome: userData.nome || 'Nome não informado',
-            cpf: userData.cpf,
-            telefone: userData.telefone || '',
-            matricula: userData.matricula || '',
-            curso: userData.curso || 'Curso não informado',
+            nome: '',
+            curso: '',
+            email: '',
+            telefone: userId,
+            escolhaSetor: userData.escolhaSetor
           },
         });
       }
+      estudante = await this.prisma.estudante.update({
+        where: { id: estudante.id },
+        data: {
+          nome: userData.nome,
+          telefone: userData.telefone,
+          curso: userData.curso,
+          escolhaSetor: userData.escolhaSetor,
+          email: userData.email,
+
+        },
+      });
 
       // Atualiza a sessão com o ID do estudante
       const updatedSession = await this.prisma.sessao.update({
@@ -359,17 +368,6 @@ export class SessionRepository {
 
         if (estudante) {
           // Atualiza o estudante existente
-          estudante = await this.prisma.estudante.update({
-            where: { id: estudante.id },
-            data: {
-              nome: userData.nome || estudante.nome,
-              cpf: userData.cpf || estudante.cpf,
-              telefone: userData.telefone || estudante.telefone,
-              curso: userData.curso || estudante.curso,
-              matricula: userData.matricula || estudante.matricula,
-              last_quoted_message: userData.last_quoted_message,
-            },
-          });
         } else {
           // Cria um novo estudante
           // estudante = await this.prisma.estudante.create({

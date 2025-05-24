@@ -38,30 +38,24 @@ async function main() {
     prisma.estudante.create({
       data: {
         nome: 'Ana Silva',
-        cpf: '12345678910',
         telefone: '8599992345',
         email: 'ana.silva@estudante.ifce.edu.br',
-        matricula: '2023123456',
         curso: 'Engenharia Civil',
       },
     }),
     prisma.estudante.create({
       data: {
         nome: 'Carlos Pereira',
-        cpf: '98765432109',
         telefone: '8599993456',
         email: 'carlos.pereira@estudante.ifce.edu.br',
-        matricula: '2023654321',
         curso: 'Análise e Desenvolvimento de Sistemas',
       },
     }),
     prisma.estudante.create({
       data: {
         nome: 'Mariana Costa',
-        cpf: '45678912345',
         telefone: '8599994567',
         email: 'mariana.costa@estudante.ifce.edu.br',
-        matricula: '2023789456',
         curso: 'Administração',
       },
     }),

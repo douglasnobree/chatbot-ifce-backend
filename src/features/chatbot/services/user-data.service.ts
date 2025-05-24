@@ -23,7 +23,8 @@ export class UserDataService {
           ...cachedSession.estudante,
           ...userData,
         };
-
+        console.log('updatedUserData', updatedUserData);
+        
         // Atualiza no banco de dados
         return await this.sessionRepository.updateUserData(
           userId,

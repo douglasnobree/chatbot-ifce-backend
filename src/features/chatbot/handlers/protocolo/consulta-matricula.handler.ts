@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {  SessionState } from '../../entities/session.entity';
+import { SessionState } from '../../entities/session.entity';
 import { MenuHandler } from '../../interfaces/handler.interface';
 import { SessionService } from '../../services/session.service';
 import { MensagensService } from '../../services/mensagens.service';
@@ -126,7 +126,7 @@ export class ConsultaMatriculaHandler implements MenuHandler {
           SuccessMessages.MATRICULA_LOCALIZADA(
             usuario.nome,
             usuario.curso,
-            usuario.matricula,
+            'teste', //TODO
           ),
         );
       } else {
@@ -164,7 +164,7 @@ export class ConsultaMatriculaHandler implements MenuHandler {
     mensagem: string,
   ): Promise<void> {
     // Verifica se o usuário foi encontrado ou não pelo estado dos dados
-    const usuarioEncontrado = !!session.estudante_id
+    const usuarioEncontrado = !!session.estudante_id;
 
     if (usuarioEncontrado) {
       // Fluxo para quando o usuário foi encontrado

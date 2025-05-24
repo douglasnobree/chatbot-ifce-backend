@@ -8,69 +8,205 @@
     <style>
       body {
         font-family: Arial, sans-serif;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
       }
       #atendimentos {
         margin-bottom: 20px;
       }
       #mensagens {
         border: 1px solid #ccc;
-        height: 200px;
+        height: 300px;
         overflow: auto;
         margin-bottom: 10px;
+        padding: 10px;
+        background-color: #f9f9f9;
       }
       .atendimento {
-        margin-bottom: 5px;
+        margin-bottom: 8px;
+        padding: 10px;
+        background-color: #f0f8ff;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
       .atendimento button {
         margin-left: 10px;
+        padding: 5px 10px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .atendimento button:hover {
+        background-color: #45a049;
+      }
+      .mensagem-usuario {
+        text-align: left;
+        background-color: #e3f2fd;
+        padding: 8px;
+        margin: 5px 0;
+        border-radius: 10px 10px 10px 0;
+        max-width: 70%;
+      }
+      .mensagem-atendente {
+        text-align: right;
+        background-color: #e8f5e9;
+        padding: 8px;
+        margin: 5px 0 5px auto;
+        border-radius: 10px 10px 0 10px;
+        max-width: 70%;
+      }
+      .login-form {
+        background-color: #f5f5f5;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      input,
+      button {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      button {
+        cursor: pointer;
+        background-color: #2196f3;
+        color: white;
+        border: none;
+      }
+      button:hover {
+        background-color: #0b7dda;
+      }
+      #msg {
+        flex: 1;
       }
     </style>
   </head>
   <body>
-    <h2>Painel do Atendente</h2>
-    <div>
-      <label>Seu nome: <input id="nomeAtendente" /></label>
-      <label>Setor: <input id="setorAtendente" value="Comunicação" /></label>
-      <button onclick="conectarPainel()">Conectar</button>
-    </div>
-    <div id="painel" style="display: none">
-      <h3>Atendimentos Abertos</h3>
-      <div id="atendimentos"></div>
-      <div id="chat" style="display: none">
-        <h4>Chat com usuário (Protocolo: <span id="protocoloAtual"></span>)</h4>
-        <div id="mensagens"></div>
-        <input id="msg" placeholder="Digite sua mensagem" />
-        <button onclick="enviar()">Enviar</button>
+    <div class="header">
+      <h2>Painel do Atendente - IFCE</h2>
+      <div>
+        <span id="statusConexao">⚠️ Desconectado</span>
       </div>
     </div>
+
+    <div class="login-form">
+      <h3>Identificação do Atendente</h3>
+      <div class="input-group">
+        <label
+          >ID do Atendente: <input id="atendenteId" value="atend-001"
+        /></label>
+        <label>Nome: <input id="nomeAtendente" value="Atendente IFCE" /></label>
+        <label>Setor: <input id="setorAtendente" value="Comunicação" /></label>
+        <button onclick="conectarPainel()">Conectar</button>
+      </div>
+    </div>
+
+    <div id="painel" style="display: none">
+      <h3>Atendimentos Aguardando Atendente</h3>
+      <div id="atendimentos"></div>
+      <div id="chat" style="display: none">
+        <h3>Chat com Usuário</h3>
+        <div class="info-protocolo">
+          <p><strong>Protocolo:</strong> <span id="protocoloAtual"></span></p>
+          <p><strong>Setor:</strong> <span id="setorAtual"></span></p>
+          <button onclick="encerrarAtendimento()">Encerrar Atendimento</button>
+        </div>
+        <div id="mensagens"></div>
+        <div class="input-group">
+          <input
+            id="msg"
+            placeholder="Digite sua mensagem"
+            onkeypress="if(event.keyCode === 13) enviar()"
+          />
+          <button onclick="enviar()">Enviar</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       let socket;
       let atendimentosAbertos = [];
       let sessionIdAtual = null;
       let nomeAtendente = '';
       let setorAtendente = '';
+      let atendenteId = '';
 
       function conectarPainel() {
         nomeAtendente = document.getElementById('nomeAtendente').value;
         setorAtendente = document.getElementById('setorAtendente').value;
+        atendenteId = document.getElementById('atendenteId').value;
+
+        if (!nomeAtendente || !setorAtendente || !atendenteId) {
+          alert('Por favor, preencha todos os campos de identificação.');
+          return;
+        }
+
         socket = io('http://localhost:3000');
         document.getElementById('painel').style.display = '';
+        document.getElementById('statusConexao').innerHTML = '🟢 Conectado';
+
         buscarAtendimentos();
         setInterval(buscarAtendimentos, 3000); // Atualiza lista a cada 3s
-      }
 
-      function buscarAtendimentos() {
-        // Simulação: busca atendimentos abertos via evento (ideal: API REST ou evento real do backend)
-        socket.emit('listarAtendimentos');
-      }
+        // Configurar listeners
+        socket.on('connect', () => {
+          document.getElementById('statusConexao').innerHTML = '🟢 Conectado';
+        });
 
-      // Recebe lista de atendimentos abertos
-      socket &&
-        socket.on &&
+        socket.on('disconnect', () => {
+          document.getElementById('statusConexao').innerHTML =
+            '🔴 Desconectado';
+        });
+
         socket.on('atendimentosAbertos', (data) => {
           atendimentosAbertos = data;
           renderAtendimentos();
         });
+
+        socket.on('novaMensagem', (data) =>
+          addMsg(
+            data.sender === 'usuario' ? 'Usuário' : nomeAtendente,
+            data.mensagem,
+          ),
+        );
+
+        socket.on('atendenteEntrou', (data) => {
+          addMsg(
+            'Sistema',
+            `Atendente ${data.nome} do setor ${data.setor} entrou no atendimento.`,
+          );
+        });
+
+        socket.on('atendimentoEncerrado', () => {
+          addMsg('Sistema', 'Este atendimento foi encerrado.');
+          setTimeout(() => {
+            alert('O atendimento foi encerrado.');
+            fecharChat();
+          }, 1000);
+        });
+      }
+
+      function buscarAtendimentos() {
+        if (socket && socket.connected) {
+          socket.emit('listarAtendimentos');
+        }
+      }
 
       function renderAtendimentos() {
         const div = document.getElementById('atendimentos');
@@ -82,42 +218,86 @@
         atendimentosAbertos.forEach((at) => {
           const el = document.createElement('div');
           el.className = 'atendimento';
-          el.innerHTML = `Protocolo: <b>${at.sessionId}</b> | Setor: ${at.setor} <button onclick="entrarAtendimento('${at.sessionId}', '${at.setor}')">Atender</button>`;
+          el.innerHTML = `
+            <div>
+              <strong>ID da Sessão:</strong> ${at.sessionId.substring(0, 8)}... | 
+              <strong>Setor:</strong> ${at.setor} | 
+              <strong>Origem:</strong> ${at.origem || 'Web'} |
+              <strong>Protocolo:</strong> ${at.protocolo === 'Sim' ? '✓' : '✗'}
+            </div>
+            <button onclick="entrarAtendimento('${at.sessionId}', '${at.setor}', '${at.origem || 'Web'}')">Atender</button>
+          `;
           div.appendChild(el);
         });
       }
-
-      function entrarAtendimento(sessionId, setor) {
+      function entrarAtendimento(sessionId, setor, origem) {
         sessionIdAtual = sessionId;
         document.getElementById('protocoloAtual').innerText = sessionId;
+        document.getElementById('setorAtual').innerText = setor;
         document.getElementById('chat').style.display = '';
+        document.getElementById('mensagens').innerHTML = '';
+
+        // Mostra origem do atendimento (WhatsApp ou Web)
+        const origemAtendimento = origem || 'Web';
+
         socket.emit('entrarAtendimento', {
           sessionId,
           nome: nomeAtendente,
-          setor,
+          setor: setorAtendente,
+          atendenteId: atendenteId,
         });
-        socket.on('novaMensagem', (data) =>
-          addMsg(
-            data.sender === 'usuario' ? 'Usuário' : nomeAtendente,
-            data.mensagem,
-          ),
+
+        addMsg(
+          'Sistema',
+          `Você entrou no atendimento. O usuário está utilizando ${origemAtendimento}. Suas mensagens serão enviadas diretamente para o usuário.`,
         );
       }
 
+      function fecharChat() {
+        document.getElementById('chat').style.display = 'none';
+        sessionIdAtual = null;
+      }
+
+      function encerrarAtendimento() {
+        if (!sessionIdAtual) return;
+
+        if (confirm('Deseja realmente encerrar este atendimento?')) {
+          socket.emit('encerrarAtendimento', { sessionId: sessionIdAtual });
+          addMsg('Sistema', 'Você encerrou este atendimento.');
+          setTimeout(fecharChat, 1000);
+        }
+      }
+
+      function addMsg(sender, mensagem) {
+        const div = document.getElementById('mensagens');
+        const msgEl = document.createElement('div');
+        msgEl.className =
+          sender === 'Usuário' ? 'mensagem-usuario' : 'mensagem-atendente';
+
+        if (sender === 'Sistema') {
+          msgEl.style.backgroundColor = '#fffde7';
+          msgEl.style.textAlign = 'center';
+          msgEl.style.margin = '10px auto';
+          msgEl.style.fontStyle = 'italic';
+        }
+
+        msgEl.innerHTML = `<strong>${sender}:</strong> ${mensagem}`;
+        div.appendChild(msgEl);
+        div.scrollTop = div.scrollHeight;
+      }
+
       function enviar() {
-        const mensagem = document.getElementById('msg').value;
+        const msgInput = document.getElementById('msg');
+        const mensagem = msgInput.value.trim();
+        if (!mensagem || !sessionIdAtual) return;
+
         socket.emit('enviarMensagem', {
           sessionId: sessionIdAtual,
           mensagem,
           sender: 'atendente',
         });
-        document.getElementById('msg').value = '';
-      }
-
-      function addMsg(remetente, texto) {
-        const div = document.getElementById('mensagens');
-        div.innerHTML += `<b>${remetente}:</b> ${texto}<br/>`;
-        div.scrollTop = div.scrollHeight;
+        msgInput.value = '';
+        msgInput.focus();
       }
     </script>
   </body>
