@@ -284,29 +284,61 @@ export class SessionRepository {
       let estudante = await this.prisma.estudante.findUnique({
         where: { telefone: userId },
       });
-
+      console.log('estudante', estudante, userId);
       if (!estudante) {
-        estudante = await this.prisma.estudante.create({
-          data: {
+        try {
+          console.log(
+            'estudante não encontrado, criando novo estudante',
+            userId,
+          );
+          // Log detalhado dos dados enviados
+          console.log('Dados para criação:', {
             nome: '',
             curso: '',
             email: '',
             telefone: userId,
-            escolhaSetor: userData.escolhaSetor
-          },
-        });
+            escolhaSetor: userData.escolhaSetor,
+          });
+          // Gera um email aleatório se não houver
+          const randomEmail = `user_${Date.now()}_${Math.floor(Math.random() * 10000)}@fake.com`;
+          estudante = await this.prisma.estudante.create({
+            data: {
+              nome: '',
+              curso: '',
+              email: randomEmail,
+              telefone: userId,
+              escolhaSetor: userData.escolhaSetor,
+            },
+          });
+          console.log('estudante criado', estudante, userId);
+        } catch (createError) {
+          this.logger.error(
+            `Erro ao criar estudante: ${JSON.stringify(createError, null, 2)}`,
+            createError.stack,
+          );
+          console.error('Erro completo ao criar estudante:', createError);
+          throw createError;
+        }
+      } else {
+        try {
+          estudante = await this.prisma.estudante.update({
+            where: { id: estudante.id },
+            data: {
+              nome: userData.nome,
+              telefone: userData.telefone,
+              curso: userData.curso,
+              escolhaSetor: userData.escolhaSetor,
+              email: userData.email,
+            },
+          });
+        } catch (updateError) {
+          this.logger.error(
+            `Erro ao atualizar estudante: ${updateError.message}`,
+            updateError.stack,
+          );
+          throw updateError;
+        }
       }
-      estudante = await this.prisma.estudante.update({
-        where: { id: estudante.id },
-        data: {
-          nome: userData.nome,
-          telefone: userData.telefone,
-          curso: userData.curso,
-          escolhaSetor: userData.escolhaSetor,
-          email: userData.email,
-
-        },
-      });
 
       // Atualiza a sessão com o ID do estudante
       const updatedSession = await this.prisma.sessao.update({

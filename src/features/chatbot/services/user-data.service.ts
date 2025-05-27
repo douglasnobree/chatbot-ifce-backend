@@ -23,16 +23,16 @@ export class UserDataService {
           ...cachedSession.estudante,
           ...userData,
         };
-        console.log('updatedUserData', updatedUserData);
-        
+        console.log('updatedUserData', updatedUserData, userId);
+
         // Atualiza no banco de dados
         return await this.sessionRepository.updateUserData(
           userId,
           updatedUserData,
         );
       }
-
-      return null;
+      console.log('userData', userId, userData);
+      return
     } catch (error) {
       this.logger.error(
         `Erro ao atualizar dados do usuário: ${error.message}`,

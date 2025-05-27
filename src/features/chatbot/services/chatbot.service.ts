@@ -67,22 +67,53 @@ export class ChatbotService {
       }
 
       this.logger.log(
-        `Processando mensagem do usuário ${remetente} no estado ${session.state}`,
+        `Processando mensagem do usuário ${remetente} no estado ${session.estado}`,
       );
 
       // Se for uma resposta a outra mensagem, registramos isso no log
+      if (mensagemOriginal) {
+        this.logger.log(
+          `Esta é uma resposta à mensagem: "${mensagemOriginal.substring(0, 50)}${mensagemOriginal.length > 50 ? '...' : ''}"`,
+        );
+      }
 
       // Salva a mensagem recebida no banco de dados
-      await this.messageService.saveMessage(remetente, mensagem, 'USUARIO'); // Se o estado da sessão for ATENDIMENTO_HUMANO, encaminha a mensagem para o gateway
+      await this.messageService.saveMessage(remetente, mensagem, 'USUARIO');
+
+      // Se o estado da sessão for ATENDIMENTO_HUMANO, encaminha a mensagem para o gateway
       if (session.estado === SessionState.ATENDIMENTO_HUMANO) {
         this.logger.log(
-          `Encaminhando mensagem do usuário para o atendimento humano: ${session.id}`,
+          `[ENCAMINHAMENTO] Detectado estado ATENDIMENTO_HUMANO para sessão ${session.id} (${remetente})`,
         );
-        await this.atendimentoGateway.processarMensagemWhatsApp(
-          session,
-          mensagem,
-        );
-        return;
+
+        try {
+          this.logger.log(
+            `[ENCAMINHAMENTO] Iniciando encaminhamento da mensagem para o atendimento humano via gateway`,
+          );
+          await this.atendimentoGateway.processarMensagemWhatsApp(
+            session,
+            mensagem,
+          );
+          this.logger.log(
+            `[ENCAMINHAMENTO] Mensagem encaminhada com sucesso para atendimento humano`,
+          );
+          return;
+        } catch (error) {
+          this.logger.error(
+            `[ENCAMINHAMENTO] Erro ao encaminhar mensagem para atendimento humano: ${error.message}`,
+            error.stack,
+          );
+
+          // Em caso de erro no encaminhamento, envia mensagem de erro ao usuário
+          const errorMessage: SendMessageDto = {
+            number: remetente.split('@')[0],
+            textMessage: {
+              text: 'Desculpe, estamos com problemas para encaminhar sua mensagem ao atendente. Por favor, tente novamente em alguns instantes.',
+            },
+          };
+          await this.whatsappService.sendMessage(errorMessage, instanceIdStr);
+          return;
+        }
       }
 
       // Processa a mensagem com base no estado atual da sessão
@@ -92,6 +123,21 @@ export class ChatbotService {
         `Erro ao processar mensagem: ${error.message}`,
         error.stack,
       );
+
+      // Tenta enviar mensagem de erro ao usuário
+      try {
+        const errorMessage: SendMessageDto = {
+          number: remetente.split('@')[0],
+          textMessage: {
+            text: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
+          },
+        };
+        await this.whatsappService.sendMessage(errorMessage, instanceIdStr);
+      } catch (sendError) {
+        this.logger.error(
+          `Não foi possível enviar mensagem de erro: ${sendError.message}`,
+        );
+      }
     }
   }
 

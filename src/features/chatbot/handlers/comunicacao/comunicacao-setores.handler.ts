@@ -52,6 +52,7 @@ export class ComunicacaoSetoresHandler implements MenuHandler {
     // Se o estado for para coletar qual setor o usuário deseja falar
     console.log(session);
     if (!session.estudante || !session.estudante.escolhaSetor) {
+      console.log('msgNormalizada', msgNormalizada);
       switch (msgNormalizada) {
         case '0':
           await this.operacoesBaseService.voltarMenuPrincipal(session);
@@ -127,6 +128,7 @@ export class ComunicacaoSetoresHandler implements MenuHandler {
       }
 
       // Verifica se a mensagem contém dados de usuário formatados
+      console.log('msgNormalizada', msgNormalizada);
       const dadosUsuario = this.extrairDadosUsuario(mensagem);
       console.log('dadosUsuario', dadosUsuario);
       // Se encontrou dados do usuário, atualiza primeiro
@@ -179,8 +181,9 @@ export class ComunicacaoSetoresHandler implements MenuHandler {
       console.log('dadosUsuario', dadosUsuario);
       // Se encontrou dados do usuário, atualiza primeiro
       if (dadosUsuario) {
+        const { telefone, ...dadosSemTelefone } = dadosUsuario;
         const dadosCompletos = {
-          ...dadosUsuario,
+          ...dadosSemTelefone,
           escolhaSetor: session.estudante?.escolhaSetor || '',
         };
 

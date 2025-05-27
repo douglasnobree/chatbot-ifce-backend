@@ -176,6 +176,13 @@ export class ProtocoloService {
    */
   async atribuirAtendente(numeroProtocolo: string, atendente_id: string) {
     try {
+      // Verifica se o atendente existe antes de atualizar o protocolo
+      const atendente = await this.prisma.atendente.findUnique({
+        where: { id: atendente_id },
+      });
+      if (!atendente) {
+        throw new Error(`Atendente com id ${atendente_id} não encontrado.`);
+      }
       const protocolo = await this.prisma.protocolo.update({
         where: { numero: numeroProtocolo },
         data: {

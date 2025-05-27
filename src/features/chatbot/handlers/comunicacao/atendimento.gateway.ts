@@ -15,6 +15,7 @@ import { MensagensService } from '../../services/mensagens.service';
 import { WhatsappService } from '../../../whatsapp/service/whatsapp.service';
 import { SendMessageDto } from '../../../whatsapp/dto/send-message.dto';
 import { Sessao } from '@prisma/client';
+import { stat } from 'fs';
 
 interface ChatMessage {
   sender: 'usuario' | 'atendente';
@@ -45,8 +46,6 @@ export class AtendimentoGateway
   @WebSocketServer()
   server: Server;
 
-  // Mapeia sessões: sessionId -> dados da sessão
-  private sessions: Record<string, AtendimentoSession> = {};
   constructor(
     private readonly protocoloService: ProtocoloService,
     private readonly prisma: PrismaService,
@@ -54,51 +53,31 @@ export class AtendimentoGateway
   ) {}
 
   handleConnection(client: Socket) {
-    // Pode adicionar lógica de autenticação aqui
+    this.logger.log(`Cliente conectado: ${client.id}`);
   }
 
-  handleDisconnect(client: Socket) {
-    // Remove o socket das sessões
-    for (const sessionId in this.sessions) {
-      if (this.sessions[sessionId].usuario === client.id) {
-        // Se um protocolo estava associado, não exclua a sessão
-        // apenas remova o socket do usuário
-        if (this.sessions[sessionId].protocoloId) {
-          this.sessions[sessionId].usuario = undefined;
-        } else {
-          delete this.sessions[sessionId];
-        }
-      }
-      if (this.sessions[sessionId].atendente === client.id) {
-        this.sessions[sessionId].atendente = undefined;
-        this.sessions[sessionId].nomeAtendente = undefined;
-      }
-    }
+  async handleDisconnect(client: Socket) {
+    // Remove o socket do atendente das sessões do banco
+    // Não há mais sessões em memória
+    // Opcional: pode-se atualizar algum campo de status do atendente, se necessário
+    this.logger.log(`Cliente desconectado: ${client.id}`);
   }
 
-  // Iniciar novo atendimento - NÃO é mais usado com WhatsApp
-  // Mantido apenas para retrocompatibilidade
   @SubscribeMessage('iniciarAtendimento')
   async handleIniciarAtendimento(
     @MessageBody()
     data: {
-      sessionId: string;
+      sessao_id: string;
       setor: string;
       estudanteId?: string;
       sessionDBId?: string;
     },
     @ConnectedSocket() client: Socket,
   ) {
-    this.sessions[data.sessionId] = {
-      usuario: client.id,
-      setor: data.setor,
-      estudanteId: data.estudanteId,
-      sessionDBId: data.sessionDBId,
-    };
+    // Adiciona o cliente à sala da sessão
+    client.join(data.sessionDBId || data.sessao_id);
 
-    client.join(data.sessionId);
-
-    // Criar protocolo no banco de dados
+    // Cria protocolo no banco de dados
     if (data.sessionDBId && data.estudanteId) {
       try {
         const protocolo = await this.protocoloService.criarProtocoloDB({
@@ -107,17 +86,11 @@ export class AtendimentoGateway
           estudante_id: data.estudanteId,
           assunto: 'Atendimento em tempo real',
         });
-
-        // Salva o ID do protocolo na sessão
-        this.sessions[data.sessionId].protocoloId = protocolo.id;
-
-        // Registra mensagem de sistema no protocolo
         await this.protocoloService.registrarMensagemProtocolo({
           protocolo_id: protocolo.id,
           conteudo: `Atendimento iniciado pelo usuário para o setor: ${data.setor}`,
           origem: 'SISTEMA',
         });
-
         this.server.to(client.id).emit('atendimentoAguardando', {
           message: 'Aguardando um atendente...',
           protocolo: protocolo.numero,
@@ -135,215 +108,200 @@ export class AtendimentoGateway
     }
   }
 
-  // Atendente entra na sessão
   @SubscribeMessage('entrarAtendimento')
   async handleEntrarAtendimento(
     @MessageBody()
     data: {
-      sessionId: string;
+      sessao_id: string;
       nome: string;
       setor: string;
       atendenteId: string;
     },
     @ConnectedSocket() client: Socket,
   ) {
-    if (!this.sessions[data.sessionId]) return;
+    this.logger.log(
+      `[ENTRAR_ATENDIMENTO] Atendente ${data.nome} tentando entrar na sessão ${data.sessao_id}`,
+    );
 
-    this.sessions[data.sessionId].atendente = client.id;
-    this.sessions[data.sessionId].nomeAtendente = data.nome;
-    this.sessions[data.sessionId].setor = data.setor;
-    this.sessions[data.sessionId].atendenteId = data.atendenteId;
+    // Adiciona o socket do atendente à sala da sessão
+    client.join(data.sessao_id);
 
-    client.join(data.sessionId);
-
-    // Atualiza o protocolo associado com o ID do atendente
-    const protocoloId = this.sessions[data.sessionId].protocoloId;
-    if (protocoloId) {
-      try {
-        const protocolo = await this.prisma.protocolo.findUnique({
-          where: { id: protocoloId },
-        });
-
-        if (protocolo) {
-          await this.protocoloService.atribuirAtendente(
-            protocolo.numero,
-            data.atendenteId,
-          );
-
-          // Registra mensagem de sistema no protocolo
-          await this.protocoloService.registrarMensagemProtocolo({
-            protocolo_id: protocoloId,
-            conteudo: `Atendente ${data.nome} entrou no atendimento`,
-            origem: 'SISTEMA',
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao atribuir atendente ao protocolo:', error);
-      }
+    // Busca o protocolo associado à sessão
+    console.log(data.sessao_id);
+    const protocolo = await this.prisma.protocolo.findFirst({
+      where: { sessao_id: data.sessao_id, status: 'ABERTO'   } ,
+    });
+    if (!protocolo) {
+      this.logger.warn(
+        `[ENTRAR_ATENDIMENTO] Protocolo não encontrado para sessão ${data.sessao_id}`,
+      );
+      return;
     }
+    try {
+      await this.protocoloService.atribuirAtendente(
+        protocolo.numero,
+        data.atendenteId,
+      );
+      await this.protocoloService.registrarMensagemProtocolo({
+        protocolo_id: protocolo.id,
+        conteudo: `Atendente ${data.nome} entrou no atendimento`,
+        origem: 'SISTEMA',
+      });
+      // Notifica o usuário via WhatsApp, se necessário
+      const sessaoDB = await this.prisma.sessao.findUnique({
+        where: { id: data.sessao_id },
+      });
+      if (sessaoDB) {
+        await this.mensagensService.enviarMensagem(
+          sessaoDB,
+          `👨‍💼 O atendente ${data.nome} do setor ${data.setor} entrou no atendimento. Você já pode enviar suas mensagens!`,
+        );
+      }
+      this.server
+        .to(data.sessao_id)
+        .emit('atendenteEntrou', { nome: data.nome, setor: data.setor });
+    } catch (error) {
+      this.logger.error(
+        `[ENTRAR_ATENDIMENTO] Erro ao atribuir atendente ao protocolo: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
 
-    this.server
-      .to(data.sessionId)
-      .emit('atendenteEntrou', { nome: data.nome, setor: data.setor });
-  } // Envio de mensagem
   @SubscribeMessage('enviarMensagem')
   async handleEnviarMensagem(
     @MessageBody()
     data: {
-      sessionId: string;
+      sessao_id: string;
       mensagem: string;
       sender: 'usuario' | 'atendente';
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const session = this.sessions[data.sessionId];
-    if (!session) return;
-
-    let mensagemFormatada: string;
-    if (data.sender === 'atendente') {
-      mensagemFormatada = `[${session.nomeAtendente}][${session.setor}] - ${data.mensagem}`;
-
-      // Enviar mensagem para o WhatsApp se for do atendente
-      if (session.sessionDBId) {
-        try {
-          // Buscar a sessão do usuário para enviar mensagem via WhatsApp
-          const sessaoDB = await this.prisma.sessao.findUnique({
-            where: { id: session.sessionDBId },
-          });
-
-          if (sessaoDB) {
-            this.logger.log(
-              `Enviando mensagem do atendente para WhatsApp: ${sessaoDB.userId}`,
-            );
-
-            // Enviar mensagem para o WhatsApp através do serviço de mensagens injetado
-            await this.mensagensService.enviarMensagem(
-              sessaoDB,
-              mensagemFormatada,
-            );
-            this.logger.log(
-              `Mensagem enviada para o WhatsApp: ${sessaoDB.userId}`,
-            );
-          }
-        } catch (error) {
-          this.logger.error(
-            `Erro ao enviar mensagem para WhatsApp: ${error.message}`,
-            error.stack,
-          );
-        }
+    // Busca o protocolo aberto da sessão
+    const protocolo = await this.prisma.protocolo.findFirst({
+      where: { sessao_id: data.sessao_id, status: 'EM_ATENDIMENTO' },
+      include: { atendente: true },
+    });
+    if (!protocolo) {
+      this.logger.warn(
+        `[ENVIAR_MENSAGEM] Protocolo não encontrado para sessão ${data.sessao_id}`,
+      );
+      return;
+    }
+    let mensagemFormatada = data.mensagem;
+    if (data.sender === 'atendente' && protocolo.atendente) {
+      mensagemFormatada = `[${protocolo.atendente.nome}][${protocolo.setor}] - ${data.mensagem}`;
+      // Envia para WhatsApp
+      const sessaoDB = await this.prisma.sessao.findUnique({
+        where: { id: data.sessao_id },
+      });
+      if (sessaoDB) {
+        await this.mensagensService.enviarMensagem(sessaoDB, mensagemFormatada);
       }
-    } else {
-      mensagemFormatada = data.mensagem;
     }
 
-    this.server.to(data.sessionId).emit('novaMensagem', {
+    // Emite para todos os clientes na sala, não apenas para quem enviou
+    this.server.to(data.sessao_id).emit('novaMensagem', {
       sender: data.sender,
       mensagem: mensagemFormatada,
     });
-
-    // Salvar a mensagem no protocolo, se houver um protocolo associado
-    if (session.protocoloId) {
-      try {
-        await this.protocoloService.registrarMensagemProtocolo({
-          protocolo_id: session.protocoloId,
-          conteudo: mensagemFormatada,
-          origem: data.sender === 'usuario' ? 'USUARIO' : 'ATENDENTE',
-        });
-      } catch (error) {
-        console.error('Erro ao salvar mensagem no protocolo:', error);
-      }
-    }
+    await this.protocoloService.registrarMensagemProtocolo({
+      protocolo_id: protocolo.id,
+      conteudo: mensagemFormatada,
+      origem: data.sender === 'usuario' ? 'USUARIO' : 'ATENDENTE',
+    });
   }
-  // Listar atendimentos abertos para o painel do atendente
+
   @SubscribeMessage('listarAtendimentos')
   async handleListarAtendimentos(_: any, @ConnectedSocket() client: Socket) {
-    // Retorna sessões que têm usuário mais não atendente
-    const abertos = Object.entries(this.sessions)
-      .filter(([_, s]) => s.usuario && !s.atendente)
-      .map(([sessionId, s]) => ({
-        sessionId,
-        setor: s.setor,
-        protocolo: s.protocoloId ? 'Sim' : 'Não',
-        origem: s.usuario === 'whatsapp' ? 'WhatsApp' : 'Web',
-      }));
-
-    client.emit('atendimentosAbertos', abertos);
+    // Lista protocolos abertos
+    const response = await this.prisma.protocolo.findMany({
+      where: {
+        OR: [{ status: 'ABERTO' }, { status: 'EM_ATENDIMENTO' }],
+      },
+      include: { estudante: true, atendente: true },
+    });
+    client.emit('atendimentosAbertos', response);
   }
 
-  // Encerrar um atendimento
   @SubscribeMessage('encerrarAtendimento')
   async handleEncerrarAtendimento(
-    @MessageBody() data: { sessionId: string },
+    @MessageBody() data: { sessao_id: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const session = this.sessions[data.sessionId];
-    if (!session) return;
-
-    // Fecha o protocolo se existir
-    if (session.protocoloId) {
-      try {
-        const protocolo = await this.prisma.protocolo.findUnique({
-          where: { id: session.protocoloId },
+    this.logger.log(
+      `[ENCERRAR_ATENDIMENTO] Solicitação de encerramento para sessão ${data.sessao_id}`,
+    );
+    // Busca o protocolo aberto da sessão
+    const protocolo = await this.prisma.protocolo.findFirst({
+      where: { sessao_id: data.sessao_id, status: 'EM_ATENDIMENTO' },
+    });
+    if (!protocolo) {
+      this.logger.warn(
+        `[ENCERRAR_ATENDIMENTO] Protocolo não encontrado para sessão ${data.sessao_id}`,
+      );
+      return;
+    }
+    try {
+      await this.protocoloService.atualizarStatusProtocolo(
+        protocolo.numero,
+        'FECHADO',
+      );
+      await this.protocoloService.registrarMensagemProtocolo({
+        protocolo_id: protocolo.id,
+        conteudo: 'Atendimento encerrado',
+        origem: 'SISTEMA',
+      });
+      // Notifica usuário via WhatsApp
+      const sessaoDB = await this.prisma.sessao.findUnique({
+        where: { id: data.sessao_id },
+      });
+      if (sessaoDB) {
+        await this.prisma.sessao.update({
+          where: { id: data.sessao_id },
+          data: { estado: 'MAIN_MENU' },
         });
+        await this.mensagensService.enviarMensagem(
+          sessaoDB,
+          `🔚 Este atendimento foi encerrado. Se precisar de mais ajuda, você pode iniciar um novo atendimento a qualquer momento.`,
+        );
+      }
+      this.server.to(data.sessao_id).emit('atendimentoEncerrado', {
+        message: 'Este atendimento foi encerrado',
+      });
+    } catch (error) {
+      this.logger.error(
+        `[ENCERRAR_ATENDIMENTO] Erro ao encerrar protocolo: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
 
-        if (protocolo) {
-          await this.protocoloService.atualizarStatusProtocolo(
-            protocolo.numero,
-            'FECHADO',
-          );
-
-          // Registra mensagem de encerramento
-          await this.protocoloService.registrarMensagemProtocolo({
-            protocolo_id: session.protocoloId,
-            conteudo: 'Atendimento encerrado',
-            origem: 'SISTEMA',
-          });
+  async criarAtendimentoFromWhatsApp(sessaoDB: Sessao): Promise<string> {
+    let setor = 'Não especificado';
+    if (sessaoDB.estudante_id) {
+      try {
+        const estudante = await this.prisma.estudante.findUnique({
+          where: { id: sessaoDB.estudante_id },
+        });
+        if (estudante) {
+          setor = estudante.escolhaSetor || 'Não especificado';
         }
       } catch (error) {
-        console.error('Erro ao encerrar protocolo:', error);
+        this.logger.error(
+          `[CRIAR_ATENDIMENTO_WHATSAPP] Erro ao buscar estudante: ${error.message}`,
+          error.stack,
+        );
       }
     }
-
-    // Notifica todos os participantes do encerramento
-    this.server.to(data.sessionId).emit('atendimentoEncerrado', {
-      message: 'Este atendimento foi encerrado',
+    // Verifica se já existe protocolo aberto para esta sessão
+    const protocoloExistente = await this.prisma.protocolo.findFirst({
+      where: { sessao_id: sessaoDB.id, status: 'ABERTO' },
     });
-
-    // Remove a sessão
-    delete this.sessions[data.sessionId];
-  }
-  /**
-   * Cria uma sessão de atendimento a partir de uma sessão do WhatsApp
-   * Usado quando um usuário solicita atendimento humano pelo WhatsApp
-   */ async criarAtendimentoFromWhatsApp(sessaoDB: Sessao): Promise<string> {
-    const sessionId = sessaoDB.id;
-    let setor = 'Não especificado';
-
-    // Buscar o estudante e obter o setor de escolha
-    if (sessaoDB.estudante_id) {
-      const estudante = await this.prisma.estudante.findUnique({
-        where: { id: sessaoDB.estudante_id },
-      });
-
-      if (estudante) {
-        setor = estudante.escolhaSetor || 'Não especificado';
-      }
+    if (protocoloExistente) {
+      return protocoloExistente.numero;
     }
-
-    this.logger.log(
-      `Criando atendimento WhatsApp para sessão ${sessionId}, setor ${setor}`,
-    );
-
-    // Cria a sessão no registro de atendimentos
-    this.sessions[sessionId] = {
-      setor: setor,
-      estudanteId: sessaoDB.estudante_id,
-      sessionDBId: sessaoDB.id,
-      usuario: 'whatsapp', // Marca que o usuário está no WhatsApp, não no WebSocket
-      whatsappUserId: sessaoDB.userId, // ID do usuário no WhatsApp para enviar mensagens
-    };
-
-    // Cria um protocolo para este atendimento
     try {
       const protocolo = await this.protocoloService.criarProtocoloDB({
         setor: setor,
@@ -351,74 +309,73 @@ export class AtendimentoGateway
         estudante_id: sessaoDB.estudante_id,
         assunto: 'Atendimento em tempo real via WhatsApp',
       });
-
-      // Salva o ID do protocolo na sessão
-      this.sessions[sessionId].protocoloId = protocolo.id;
-
-      // Registra mensagem de sistema no protocolo
       await this.protocoloService.registrarMensagemProtocolo({
         protocolo_id: protocolo.id,
         conteudo: `Atendimento iniciado pelo usuário para o setor: ${setor}`,
         origem: 'SISTEMA',
       });
-
       return protocolo.numero;
     } catch (error) {
-      console.error(
-        'Erro ao criar protocolo para atendimento WhatsApp:',
-        error,
+      this.logger.error(
+        `[CRIAR_ATENDIMENTO_WHATSAPP] Erro ao criar protocolo para atendimento WhatsApp: ${error.message}`,
+        error.stack,
       );
       return null;
     }
   }
-  /**
-   * Processa mensagem recebida pelo webhook e encaminha para o atendente
-   * Este método deve ser chamado quando uma mensagem do WhatsApp chega
-   * para uma sessão que está em atendimento humano
-   */
+
+  private async buscarNumeroProtocolo(protocoloId: string): Promise<string> {
+    try {
+      const protocolo = await this.prisma.protocolo.findUnique({
+        where: { id: protocoloId },
+      });
+      return protocolo ? protocolo.numero : null;
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar número do protocolo: ${error.message}`,
+        error.stack,
+      );
+      return null;
+    }
+  }
+
   async processarMensagemWhatsApp(
     sessaoDB: Sessao,
     mensagem: string,
   ): Promise<void> {
     try {
-      const sessionId = sessaoDB.id;
-      const session = this.sessions[sessionId];
+      console.log(
+        'Mensagem recebida do WhatsApp:',
+        mensagem,
+        'Sessão:',
+        sessaoDB,
+      );
 
-      // Verifica se esta sessão está em atendimento
-      if (!session) {
+      const protocolo = await this.prisma.protocolo.findFirst({
+        where: { sessao_id: sessaoDB.id, status: 'EM_ATENDIMENTO' },
+      });
+
+      if (!protocolo) {
         this.logger.warn(
-          `Sessão de WhatsApp ${sessionId} não está em atendimento`,
+          `[WHATSAPP -> ATENDENTE] Protocolo não encontrado para sessão ${sessaoDB.id}`,
         );
         return;
       }
 
-      this.logger.log(
-        `Mensagem de WhatsApp recebida para sessão em atendimento: ${sessionId}`,
-      );
+      // Emite a mensagem para todos os sockets na sala da sessão
+      this.server.to(sessaoDB.id).emit('novaMensagem', {
+        sender: 'usuario',
+        mensagem,
+      });
 
-      // Enviar a mensagem para o atendente conectado, se houver
-      if (session.atendente) {
-        this.server.to(session.atendente).emit('novaMensagem', {
-          sender: 'usuario',
-          mensagem: mensagem,
-        });
-
-        // Salva a mensagem no protocolo
-        if (session.protocoloId) {
-          await this.protocoloService.registrarMensagemProtocolo({
-            protocolo_id: session.protocoloId,
-            conteudo: mensagem,
-            origem: 'USUARIO',
-          });
-        }
-      } else {
-        this.logger.warn(
-          `Mensagem recebida para sessão ${sessionId}, mas não há atendente conectado`,
-        );
-      }
+      await this.protocoloService.registrarMensagemProtocolo({
+        protocolo_id: protocolo.id,
+        conteudo: mensagem,
+        origem: 'USUARIO',
+      });
     } catch (error) {
       this.logger.error(
-        `Erro ao processar mensagem do WhatsApp: ${error.message}`,
+        `[WHATSAPP -> ATENDENTE] Erro ao processar mensagem do WhatsApp: ${error.message}`,
         error.stack,
       );
     }

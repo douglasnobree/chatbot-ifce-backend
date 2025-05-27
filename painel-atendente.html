@@ -52,6 +52,10 @@
         border-radius: 10px 10px 10px 0;
         max-width: 70%;
       }
+      .mensagem-usuario.whatsapp {
+        background-color: #dcf8c6;
+        border-left: 3px solid #25d366;
+      }
       .mensagem-atendente {
         text-align: right;
         background-color: #e8f5e9;
@@ -142,7 +146,7 @@
     <script>
       let socket;
       let atendimentosAbertos = [];
-      let sessionIdAtual = null;
+      let sessao_idAtual = null;
       let nomeAtendente = '';
       let setorAtendente = '';
       let atendenteId = '';
@@ -157,15 +161,14 @@
           return;
         }
 
-        socket = io('http://localhost:3000');
+        socket = io('http://localhost:3000/atendimento');
         document.getElementById('painel').style.display = '';
         document.getElementById('statusConexao').innerHTML = '🟢 Conectado';
 
         buscarAtendimentos();
-        setInterval(buscarAtendimentos, 3000); // Atualiza lista a cada 3s
-
-        // Configurar listeners
+        setInterval(buscarAtendimentos, 3000);
         socket.on('connect', () => {
+          console.log('Conectado ao servidor');
           document.getElementById('statusConexao').innerHTML = '🟢 Conectado';
         });
 
@@ -174,17 +177,31 @@
             '🔴 Desconectado';
         });
 
-        socket.on('atendimentosAbertos', (data) => {
-          atendimentosAbertos = data;
-          renderAtendimentos();
+        // Eventos adicionais para depuração
+        socket.on('connect_error', (error) => {
+          console.error('Erro de conexão:', error);
+          document.getElementById('statusConexao').innerHTML =
+            '🔴 Erro de conexão';
         });
 
-        socket.on('novaMensagem', (data) =>
+        socket.on('error', (error) => {
+          console.error('Erro no socket:', error);
+        });
+
+        socket.on('atendimentosAbertos', (data) => {
+          atendimentosAbertos = data;
+          console.log('Atendimentos Abertos:', atendimentosAbertos);
+          renderAtendimentos();
+        });
+        socket.on('novaMensagem', (data) => {
+          console.log('Nova Mensagem:', data);
+          console.log('Mensagem:', data.mensagem);
+          console.log('Sender:', data.sender);
           addMsg(
             data.sender === 'usuario' ? 'Usuário' : nomeAtendente,
             data.mensagem,
-          ),
-        );
+          );
+        });
 
         socket.on('atendenteEntrou', (data) => {
           addMsg(
@@ -207,7 +224,6 @@
           socket.emit('listarAtendimentos');
         }
       }
-
       function renderAtendimentos() {
         const div = document.getElementById('atendimentos');
         div.innerHTML = '';
@@ -218,30 +234,48 @@
         atendimentosAbertos.forEach((at) => {
           const el = document.createElement('div');
           el.className = 'atendimento';
+
+          // Determina a origem do atendimento
+          const origem =
+            at.assunto && at.assunto.includes('WhatsApp') ? 'WhatsApp' : 'Web';
+          const estudanteNome = at.estudante
+            ? at.estudante.nome || 'Não identificado'
+            : 'Não identificado';
+
           el.innerHTML = `
             <div>
-              <strong>ID da Sessão:</strong> ${at.sessionId.substring(0, 8)}... | 
+              <strong>ID da Sessão:</strong> ${at.sessao_id.substring(0, 8)}... | 
               <strong>Setor:</strong> ${at.setor} | 
-              <strong>Origem:</strong> ${at.origem || 'Web'} |
-              <strong>Protocolo:</strong> ${at.protocolo === 'Sim' ? '✓' : '✗'}
+              <strong>Protocolo:</strong> ${at.numero} |
+              <strong>Origem:</strong> ${origem} |
+              <strong>Estudante:</strong> ${estudanteNome}
             </div>
-            <button onclick="entrarAtendimento('${at.sessionId}', '${at.setor}', '${at.origem || 'Web'}')">Atender</button>
+            <button onclick="entrarAtendimento('${at.sessao_id}', '${at.setor}')">Atender</button>
           `;
           div.appendChild(el);
         });
       }
-      function entrarAtendimento(sessionId, setor, origem) {
-        sessionIdAtual = sessionId;
-        document.getElementById('protocoloAtual').innerText = sessionId;
+      function entrarAtendimento(sessao_id, setor) {
+        sessao_idAtual = sessao_id;
+        document.getElementById('protocoloAtual').innerText = sessao_id;
         document.getElementById('setorAtual').innerText = setor;
         document.getElementById('chat').style.display = '';
         document.getElementById('mensagens').innerHTML = '';
 
-        // Mostra origem do atendimento (WhatsApp ou Web)
-        const origemAtendimento = origem || 'Web';
+        // Tentando determinar origem do atendimento (Web ou WhatsApp)
+        const atendimento = atendimentosAbertos.find(
+          (a) => a.sessao_id === sessao_id,
+        );
+        const origemAtendimento =
+          atendimento &&
+          atendimento.assunto &&
+          atendimento.assunto.includes('WhatsApp')
+            ? 'WhatsApp'
+            : 'Web';
 
+        console.log(`Entrando no atendimento da sessão ${sessao_id}`);
         socket.emit('entrarAtendimento', {
-          sessionId,
+          sessao_id,
           nome: nomeAtendente,
           setor: setorAtendente,
           atendenteId: atendenteId,
@@ -255,19 +289,18 @@
 
       function fecharChat() {
         document.getElementById('chat').style.display = 'none';
-        sessionIdAtual = null;
+        sessao_idAtual = null;
       }
 
       function encerrarAtendimento() {
-        if (!sessionIdAtual) return;
+        if (!sessao_idAtual) return;
 
         if (confirm('Deseja realmente encerrar este atendimento?')) {
-          socket.emit('encerrarAtendimento', { sessionId: sessionIdAtual });
+          socket.emit('encerrarAtendimento', { sessao_id: sessao_idAtual });
           addMsg('Sistema', 'Você encerrou este atendimento.');
           setTimeout(fecharChat, 1000);
         }
       }
-
       function addMsg(sender, mensagem) {
         const div = document.getElementById('mensagens');
         const msgEl = document.createElement('div');
@@ -281,21 +314,36 @@
           msgEl.style.fontStyle = 'italic';
         }
 
+        // Formata a mensagem adequadamente
+        if (typeof mensagem === 'object' && mensagem !== null) {
+          console.warn('Mensagem recebida como objeto:', mensagem);
+          mensagem = JSON.stringify(mensagem);
+        }
+
         msgEl.innerHTML = `<strong>${sender}:</strong> ${mensagem}`;
         div.appendChild(msgEl);
         div.scrollTop = div.scrollHeight;
-      }
 
+        // Log para debug
+        console.log(
+          `Mensagem adicionada - De: ${sender}, Conteúdo: ${mensagem.substring(0, 50)}${mensagem.length > 50 ? '...' : ''}`,
+        );
+      }
       function enviar() {
         const msgInput = document.getElementById('msg');
         const mensagem = msgInput.value.trim();
-        if (!mensagem || !sessionIdAtual) return;
+        if (!mensagem || !sessao_idAtual) return;
 
+        console.log(`Enviando mensagem para sessão ${sessao_idAtual}`);
         socket.emit('enviarMensagem', {
-          sessionId: sessionIdAtual,
+          sessao_id: sessao_idAtual,
           mensagem,
           sender: 'atendente',
         });
+
+        // Não precisamos mais adicionar a mensagem aqui, pois o servidor
+        // irá emitir o evento novaMensagem para todos na sala, incluindo este cliente
+
         msgInput.value = '';
         msgInput.focus();
       }
