@@ -129,7 +129,7 @@ export class AtendimentoGateway
     // Busca o protocolo associado à sessão
     console.log(data.sessao_id);
     const protocolo = await this.prisma.protocolo.findFirst({
-      where: { sessao_id: data.sessao_id, status: 'ABERTO'   } ,
+      where: { sessao_id: data.sessao_id, status: 'ABERTO' },
     });
     if (!protocolo) {
       this.logger.warn(
@@ -362,6 +362,7 @@ export class AtendimentoGateway
         return;
       }
 
+      console.log(mensagem);
       // Emite a mensagem para todos os sockets na sala da sessão
       this.server.to(sessaoDB.id).emit('novaMensagem', {
         sender: 'usuario',

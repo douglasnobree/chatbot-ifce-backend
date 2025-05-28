@@ -42,6 +42,7 @@ export class MessageEventHandler
    */
   private async processarMensagemRecebida(data: any): Promise<void> {
     try {
+      console.log('Processando mensagem recebida:', data);
       // Verificar se é um objeto conforme nossa estrutura atual
       if (!data || !data.keyRemoteJid) {
         // Formato antigo, verificar se têm mensagens

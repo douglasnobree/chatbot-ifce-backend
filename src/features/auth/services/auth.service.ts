@@ -1,26 +1,63 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '../entities/user.entity';
+import { AtendentesService } from '../../atendentes/services/atendentes.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly jwtService: JwtService) {}
+  private readonly logger = new Logger(AuthService.name);
 
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly atendentesService: AtendentesService,
+  ) {}
   async validateOAuthLogin(profile: any): Promise<User> {
-    // Aqui você implementaria a lógica para encontrar ou criar um usuário
-    // baseado no perfil do Google. Isto é uma versão simplificada.
-    const user: User = {
-      id: profile.id,
-      email: profile.emails[0].value,
-      firstName: profile.name.givenName,
-      lastName: profile.name.familyName,
-      picture: profile.photos[0].value,
-      accessToken: '',
-    };
+    try {
+      const email = profile.emails[0].value;
 
-    return user;
+      // Verifica se é um email válido do IFCE
+      if (!this.isValidIfceEmail(email)) {
+        throw new BadRequestException(
+          'Apenas emails do domínio @ifce.edu.br ou @aluno.ifce.edu.br são permitidos',
+        );
+      }
+
+      const user: User = {
+        id: profile.id,
+        email: email,
+        firstName: profile.name.givenName,
+        lastName: profile.name.familyName,
+        picture: profile.photos[0].value,
+        accessToken: '',
+        isAtendente: false,
+      };
+
+      // Tenta criar ou atualizar o atendente
+      try {
+        const atendente =
+          await this.atendentesService.createOrUpdateFromGoogleAuth(profile);
+        user.isAtendente = true;
+        user.atendenteId = atendente.id;
+        this.logger.log(`Usuário autenticado como atendente: ${email}`);
+      } catch (error) {
+        // Se não conseguir criar como atendente, o usuário ainda pode se autenticar
+        // mas não terá permissões de atendente
+        this.logger.warn(
+          `Usuário ${email} autenticado sem permissões de atendente: ${error.message}`,
+        );
+      }
+
+      return user;
+    } catch (error) {
+      this.logger.error(`Erro na validação OAuth: ${error.message}`);
+      throw error;
+    }
   }
 
+  private isValidIfceEmail(email: string): boolean {
+    const validDomains = ['@ifce.edu.br', '@aluno.ifce.edu.br'];
+    return validDomains.some((domain) => email.toLowerCase().endsWith(domain));
+  }
   async login(user: User) {
     // Gerar JWT payload
     const payload = {
@@ -28,6 +65,8 @@ export class AuthService {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      isAtendente: user.isAtendente,
+      atendenteId: user.atendenteId,
     };
 
     // Gerar token de acesso
@@ -41,6 +80,8 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         picture: user.picture,
+        isAtendente: user.isAtendente,
+        atendenteId: user.atendenteId,
       },
     };
   }

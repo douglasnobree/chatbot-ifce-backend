@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Put } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Put, Delete } from '@nestjs/common';
 import { WhatsappService } from '../service/whatsapp.service';
 import {
   ApiTags,
@@ -93,5 +93,13 @@ export class WhatsappController {
   @ApiOperation({ summary: 'Obter nome da instancia' })
   getInstanceName(): Promise<any> {
     return this.whatsappService.getInstanceName();
+  }
+  
+  @Delete('instance/:instance')
+  @ApiParam({ name: 'instance', type: String })
+  @ApiOperation({ summary: 'Remover instância do WhatsApp' })
+  @ApiResponse({ status: 200, schema: { example: { success: true } } })
+  removeInstance(@Param('instance') instance: string): Promise<any> {
+    return this.whatsappService.removeInstance(instance);
   }
 }

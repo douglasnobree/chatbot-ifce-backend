@@ -5,4 +5,6 @@ export class User {
   lastName: string;
   picture?: string;
   accessToken: string;
+  isAtendente?: boolean;
+  atendenteId?: string;
 }

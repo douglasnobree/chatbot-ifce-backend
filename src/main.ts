@@ -2,12 +2,14 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { json } from 'express';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false, // Desativa o bodyParser para aplicar nossa própria configuração
   });
   const configService = app.get(ConfigService);
@@ -18,9 +20,12 @@ async function bootstrap() {
   // Configuração do Swagger
   const config = new DocumentBuilder()
     .setTitle('Chatbot IFCE API')
-    .setDescription('Documentação automática das rotas da API WhatsApp')
+    .setDescription('Documentação automática das rotas da API')
     .setVersion('1.0')
     .addTag('whatsapp')
+    .addTag('auth')
+    .addTag('atendentes')
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
@@ -39,6 +44,9 @@ async function bootstrap() {
   );
   logger.log(
     `\x1b[36m📚 Swagger disponível em: \x1b[33mhttp://localhost:${port}/api\x1b[0m`,
+  );
+  logger.log(
+    `\x1b[36m🎧 Painel do Atendente: \x1b[33mhttp://localhost:${port}/painel-atendente.html\x1b[0m`,
   );
   logger.log(separator.repeat(50));
 }

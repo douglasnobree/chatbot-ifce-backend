@@ -1,0 +1,729 @@
+<!-- Painel do Atendente Integrado com Sistema de Autenticação -->
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Painel do Atendente - Chatbot IFCE</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+
+      .container {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .login-section {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .google-auth-btn {
+        background-color: #4285f4;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        transition: background-color 0.3s;
+      }
+
+      .google-auth-btn:hover {
+        background-color: #3367d6;
+      }
+
+      .user-info {
+        background-color: #e8f5e9;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: none;
+      }
+
+      .status-indicator {
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: bold;
+        color: white;
+      }
+
+      .status-online {
+        background-color: #4caf50;
+      }
+      .status-offline {
+        background-color: #f44336;
+      }
+      .status-warning {
+        background-color: #ff9800;
+      }
+
+      #atendimentos {
+        margin-bottom: 20px;
+      }
+
+      .atendimento {
+        margin-bottom: 10px;
+        padding: 15px;
+        background-color: #f0f8ff;
+        border-radius: 8px;
+        border-left: 4px solid #2196f3;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .atendimento-info {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .atendimento-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        color: white;
+      }
+
+      .tag-whatsapp {
+        background-color: #25d366;
+      }
+      .tag-web {
+        background-color: #2196f3;
+      }
+
+      .atendimento button {
+        padding: 8px 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .atendimento button:hover {
+        background-color: #45a049;
+      }
+
+      #chat {
+        display: none;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .chat-header {
+        background-color: #2196f3;
+        color: white;
+        padding: 15px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      #mensagens {
+        border: 1px solid #e0e0e0;
+        height: 400px;
+        overflow-y: auto;
+        padding: 15px;
+        background-color: #fafafa;
+      }
+
+      .mensagem-usuario {
+        background-color: #e3f2fd;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 18px 18px 18px 4px;
+        max-width: 70%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      .mensagem-usuario.whatsapp {
+        background-color: #dcf8c6;
+        border-left: 3px solid #25d366;
+      }
+
+      .mensagem-atendente {
+        background-color: #e8f5e9;
+        padding: 12px;
+        margin: 8px 0 8px auto;
+        border-radius: 18px 18px 4px 18px;
+        max-width: 70%;
+        text-align: right;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      .mensagem-sistema {
+        background-color: #fff3e0;
+        padding: 10px;
+        margin: 8px auto;
+        border-radius: 8px;
+        text-align: center;
+        font-style: italic;
+        color: #f57c00;
+        border: 1px solid #ffcc02;
+      }
+
+      .input-group {
+        display: flex;
+        gap: 10px;
+        padding: 15px;
+        background-color: white;
+        border-radius: 0 0 8px 8px;
+        border-top: 1px solid #e0e0e0;
+      }
+
+      input,
+      button {
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+      }
+
+      button {
+        cursor: pointer;
+        background-color: #2196f3;
+        color: white;
+        border: none;
+        font-weight: bold;
+        transition: background-color 0.3s;
+      }
+
+      button:hover {
+        background-color: #1976d2;
+      }
+
+      .btn-danger {
+        background-color: #f44336;
+      }
+
+      .btn-danger:hover {
+        background-color: #d32f2f;
+      }
+
+      #msg {
+        flex: 1;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+      }
+
+      .error {
+        background-color: #ffebee;
+        color: #c62828;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 10px 0;
+        border-left: 4px solid #f44336;
+      }
+
+      .success {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 10px 0;
+        border-left: 4px solid #4caf50;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎧 Painel do Atendente - IFCE</h1>
+        <div>
+          <span id="statusConexao" class="status-indicator status-offline"
+            >⚠️ Desconectado</span
+          >
+        </div>
+      </div>
+
+      <!-- Seção de Login -->
+      <div id="loginSection" class="login-section">
+        <h2>🔐 Autenticação Necessária</h2>
+        <p>
+          Para acessar o painel de atendimento, você precisa fazer login com sua
+          conta institucional do IFCE.
+        </p>
+        <button class="google-auth-btn" onclick="loginWithGoogle()">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path
+              fill="#4285F4"
+              d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"
+            />
+            <path
+              fill="#34A853"
+              d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 01-7.18-2.53H1.83v2.07A8 8 0 008.98 17z"
+            />
+            <path
+              fill="#FBBC04"
+              d="M4.5 10.49a4.8 4.8 0 010-3.07V5.35H1.83a8 8 0 000 7.28l2.67-2.14z"
+            />
+            <path
+              fill="#EA4335"
+              d="M8.98 3.54c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.35L4.5 7.42c.64-1.9 2.26-3.88 4.48-3.88z"
+            />
+          </svg>
+          Entrar com Google
+        </button>
+        <p style="margin-top: 15px; font-size: 12px; color: #666">
+          Apenas emails institucionais (@ifce.edu.br) são aceitos
+        </p>
+      </div>
+
+      <!-- Informações do Usuário -->
+      <div id="userInfo" class="user-info">
+        <h3>👤 Atendente Logado</h3>
+        <p><strong>Nome:</strong> <span id="userName"></span></p>
+        <p><strong>Email:</strong> <span id="userEmail"></span></p>
+        <p><strong>Cargo:</strong> <span id="userCargo"></span></p>
+        <p>
+          <strong>Departamento:</strong> <span id="userDepartamento"></span>
+        </p>
+        <button onclick="logout()" class="btn-danger">Logout</button>
+      </div>
+
+      <!-- Painel Principal -->
+      <div id="painelPrincipal" style="display: none">
+        <h3>📋 Atendimentos Aguardando</h3>
+        <div id="atendimentos">
+          <div class="loading">Carregando atendimentos...</div>
+        </div>
+
+        <!-- Chat -->
+        <div id="chat">
+          <div class="chat-header">
+            <div>
+              <h3 style="margin: 0">💬 Chat Ativo</h3>
+              <p style="margin: 5px 0 0 0; opacity: 0.9">
+                <strong>Protocolo:</strong> <span id="protocoloAtual"></span> |
+                <strong>Setor:</strong> <span id="setorAtual"></span>
+              </p>
+            </div>
+            <button onclick="encerrarAtendimento()" class="btn-danger">
+              Encerrar Atendimento
+            </button>
+          </div>
+          <div id="mensagens"></div>
+          <div class="input-group">
+            <input
+              id="msg"
+              placeholder="Digite sua mensagem..."
+              onkeypress="if(event.keyCode === 13) enviar()"
+              maxlength="1000"
+            />
+            <button onclick="enviar()">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Configurações da API
+      const API_BASE_URL = 'http://localhost:3000';
+      const SOCKET_URL = 'http://localhost:3000/atendimento';
+
+      // Estado da aplicação
+      let currentUser = null;
+      let accessToken = null;
+      let socket = null;
+      let atendimentosAbertos = [];
+      let sessaoAtual = null;
+
+      // Inicialização
+      document.addEventListener('DOMContentLoaded', function () {
+        checkExistingAuth();
+      });
+
+      // Verificar se já existe autenticação
+      function checkExistingAuth() {
+        const token = localStorage.getItem('access_token');
+        const userData = localStorage.getItem('user_data');
+
+        if (token && userData) {
+          accessToken = token;
+          currentUser = JSON.parse(userData);
+          showUserInterface();
+          connectToSocket();
+        }
+      }
+
+      // Login com Google
+      function loginWithGoogle() {
+        // Redirecionar para o endpoint de autenticação OAuth
+        window.location.href = `${API_BASE_URL}/auth/google`;
+      }
+
+      // Verificar se retornou do OAuth (URL callback)
+      window.addEventListener('load', function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const error = urlParams.get('error');
+
+        if (error) {
+          showError('Erro na autenticação: ' + decodeURIComponent(error));
+          return;
+        }
+
+        if (token) {
+          accessToken = token;
+          localStorage.setItem('access_token', token);
+          fetchUserProfile();
+          // Limpar a URL
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
+        }
+      });
+
+      // Buscar perfil do usuário
+      async function fetchUserProfile() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/atendentes/me`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Falha ao buscar perfil do usuário');
+          }
+
+          const userData = await response.json();
+          currentUser = userData;
+          localStorage.setItem('user_data', JSON.stringify(userData));
+
+          showUserInterface();
+          connectToSocket();
+        } catch (error) {
+          console.error('Erro ao buscar perfil:', error);
+          showError('Erro ao carregar perfil do usuário: ' + error.message);
+          logout();
+        }
+      }
+
+      // Mostrar interface do usuário
+      function showUserInterface() {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('userInfo').style.display = 'block';
+        document.getElementById('painelPrincipal').style.display = 'block';
+
+        // Preencher dados do usuário
+        document.getElementById('userName').textContent =
+          currentUser.nome || 'N/A';
+        document.getElementById('userEmail').textContent =
+          currentUser.email || 'N/A';
+        document.getElementById('userCargo').textContent =
+          currentUser.cargo || 'N/A';
+        document.getElementById('userDepartamento').textContent =
+          currentUser.departamento || 'N/A';
+      }
+
+      // Conectar ao Socket.IO
+      function connectToSocket() {
+        if (socket) {
+          socket.disconnect();
+        }
+
+        socket = io(SOCKET_URL, {
+          auth: {
+            token: accessToken,
+            atendenteId: currentUser.id,
+            nome: currentUser.nome,
+            setor: currentUser.departamento || 'Geral',
+          },
+        });
+
+        socket.on('connect', () => {
+          console.log('Conectado ao servidor de atendimento');
+          updateStatus('🟢 Conectado', 'status-online');
+          buscarAtendimentos();
+          // Buscar atendimentos a cada 5 segundos
+          setInterval(buscarAtendimentos, 5000);
+        });
+
+        socket.on('disconnect', () => {
+          console.log('Desconectado do servidor');
+          updateStatus('🔴 Desconectado', 'status-offline');
+        });
+
+        socket.on('connect_error', (error) => {
+          console.error('Erro de conexão:', error);
+          updateStatus('❌ Erro de conexão', 'status-offline');
+        });
+
+        socket.on('atendimentosAbertos', (data) => {
+          atendimentosAbertos = data;
+          renderAtendimentos();
+        });
+
+        socket.on('novaMensagem', (data) => {
+          if (sessaoAtual && data.sessao_id === sessaoAtual.sessao_id) {
+            addMessage(data);
+          }
+        });
+
+        socket.on('atendenteEntrou', (data) => {
+          addSystemMessage(
+            `Atendente ${data.nome} do setor ${data.setor} entrou no atendimento.`,
+          );
+        });
+
+        socket.on('atendimentoEncerrado', () => {
+          addSystemMessage('Este atendimento foi encerrado.');
+          setTimeout(() => {
+            alert('O atendimento foi encerrado.');
+            fecharChat();
+          }, 1000);
+        });
+      }
+
+      // Atualizar status de conexão
+      function updateStatus(text, className) {
+        const statusEl = document.getElementById('statusConexao');
+        statusEl.textContent = text;
+        statusEl.className = `status-indicator ${className}`;
+      }
+
+      // Buscar atendimentos
+      function buscarAtendimentos() {
+        if (socket && socket.connected) {
+          socket.emit('listarAtendimentos');
+        }
+      }
+
+      // Renderizar lista de atendimentos
+      function renderAtendimentos() {
+        const div = document.getElementById('atendimentos');
+        div.innerHTML = '';
+
+        if (!atendimentosAbertos.length) {
+          div.innerHTML =
+            '<div class="loading">📭 Nenhum atendimento aguardando no momento</div>';
+          return;
+        }
+
+        atendimentosAbertos.forEach((atendimento) => {
+          const el = document.createElement('div');
+          el.className = 'atendimento';
+
+          const origem =
+            atendimento.assunto && atendimento.assunto.includes('WhatsApp')
+              ? 'WhatsApp'
+              : 'Web';
+          const estudanteNome = atendimento.estudante
+            ? atendimento.estudante.nome || 'Não identificado'
+            : 'Não identificado';
+          const tagClass = origem === 'WhatsApp' ? 'tag-whatsapp' : 'tag-web';
+
+          el.innerHTML = `
+            <div class="atendimento-info">
+              <div>
+                <span class="atendimento-tag ${tagClass}">${origem}</span>
+                <strong>Protocolo:</strong> ${atendimento.numero}
+              </div>
+              <div><strong>Setor:</strong> ${atendimento.setor}</div>
+              <div><strong>Estudante:</strong> ${estudanteNome}</div>
+              <div><strong>Sessão:</strong> ${atendimento.sessao_id.substring(0, 12)}...</div>
+            </div>
+            <button onclick="entrarAtendimento('${atendimento.sessao_id}', '${atendimento.setor}', '${atendimento.numero}')">
+              📞 Atender
+            </button>
+          `;
+          div.appendChild(el);
+        });
+      }
+
+      // Entrar em atendimento
+      function entrarAtendimento(sessao_id, setor, protocolo) {
+        sessaoAtual = { sessao_id, setor, protocolo };
+
+        document.getElementById('protocoloAtual').textContent = protocolo;
+        document.getElementById('setorAtual').textContent = setor;
+        document.getElementById('chat').style.display = 'block';
+        document.getElementById('mensagens').innerHTML = '';
+
+        const atendimento = atendimentosAbertos.find(
+          (a) => a.sessao_id === sessao_id,
+        );
+        const origem =
+          atendimento &&
+          atendimento.assunto &&
+          atendimento.assunto.includes('WhatsApp')
+            ? 'WhatsApp'
+            : 'Web';
+
+        socket.emit('entrarAtendimento', {
+          sessao_id,
+          nome: currentUser.nome,
+          setor: currentUser.departamento || 'Geral',
+          atendenteId: currentUser.id,
+        });
+
+        addSystemMessage(
+          `Você entrou no atendimento. Origem: ${origem}. Suas mensagens serão enviadas diretamente para o usuário.`,
+        );
+
+        // Scroll para o chat
+        document.getElementById('chat').scrollIntoView({ behavior: 'smooth' });
+      }
+
+      // Adicionar mensagem ao chat
+      function addMessage(data) {
+        const div = document.getElementById('mensagens');
+        const msgEl = document.createElement('div');
+
+        if (data.sender === 'usuario') {
+          msgEl.className = 'mensagem-usuario';
+          if (data.origem === 'whatsapp') {
+            msgEl.classList.add('whatsapp');
+          }
+          msgEl.innerHTML = `<strong>👤 Usuário:</strong> ${data.mensagem}`;
+        } else {
+          msgEl.className = 'mensagem-atendente';
+          msgEl.innerHTML = `<strong>🎧 ${currentUser.nome}:</strong> ${data.mensagem}`;
+        }
+
+        div.appendChild(msgEl);
+        div.scrollTop = div.scrollHeight;
+      }
+
+      // Adicionar mensagem do sistema
+      function addSystemMessage(mensagem) {
+        const div = document.getElementById('mensagens');
+        const msgEl = document.createElement('div');
+        msgEl.className = 'mensagem-sistema';
+        msgEl.innerHTML = `🔔 ${mensagem}`;
+        div.appendChild(msgEl);
+        div.scrollTop = div.scrollHeight;
+      }
+
+      // Enviar mensagem
+      function enviar() {
+        const msgInput = document.getElementById('msg');
+        const mensagem = msgInput.value.trim();
+
+        if (!mensagem || !sessaoAtual) return;
+
+        socket.emit('enviarMensagem', {
+          sessao_id: sessaoAtual.sessao_id,
+          mensagem,
+          sender: 'atendente',
+        });
+
+        msgInput.value = '';
+        msgInput.focus();
+      }
+
+      // Encerrar atendimento
+      function encerrarAtendimento() {
+        if (!sessaoAtual) return;
+
+        if (confirm('Deseja realmente encerrar este atendimento?')) {
+          socket.emit('encerrarAtendimento', {
+            sessao_id: sessaoAtual.sessao_id,
+          });
+          addSystemMessage('Você encerrou este atendimento.');
+          setTimeout(fecharChat, 1000);
+        }
+      }
+
+      // Fechar chat
+      function fecharChat() {
+        document.getElementById('chat').style.display = 'none';
+        sessaoAtual = null;
+      }
+
+      // Logout
+      function logout() {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user_data');
+
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+
+        currentUser = null;
+        accessToken = null;
+
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('userInfo').style.display = 'none';
+        document.getElementById('painelPrincipal').style.display = 'none';
+
+        updateStatus('⚠️ Desconectado', 'status-offline');
+      }
+
+      // Mostrar erro
+      function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.textContent = message;
+
+        document
+          .querySelector('.container')
+          .insertBefore(
+            errorDiv,
+            document.querySelector('.container').firstChild,
+          );
+
+        setTimeout(() => {
+          errorDiv.remove();
+        }, 5000);
+      }
+
+      // Mostrar sucesso
+      function showSuccess(message) {
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success';
+        successDiv.textContent = message;
+
+        document
+          .querySelector('.container')
+          .insertBefore(
+            successDiv,
+            document.querySelector('.container').firstChild,
+          );
+
+        setTimeout(() => {
+          successDiv.remove();
+        }, 3000);
+      }
+    </script>
+  </body>
+</html>

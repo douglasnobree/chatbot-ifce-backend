@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teste de Autenticação</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #fafafa;
+      }
+      button {
+        background-color: #4285f4;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px 5px;
+      }
+      button:hover {
+        background-color: #3367d6;
+      }
+      .result {
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 4px;
+        background-color: #e8f5e8;
+        border: 1px solid #4caf50;
+      }
+      .error {
+        background-color: #ffebee;
+        border: 1px solid #f44336;
+      }
+      pre {
+        background-color: #f5f5f5;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🧪 Teste de Autenticação - Chatbot IFCE</h1>
+
+      <div class="test-section">
+        <h3>1. Teste de Conexão com Backend</h3>
+        <button onclick="testBackendConnection()">Testar Conexão</button>
+        <div id="connection-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>2. Teste de Rota de Autenticação Google</h3>
+        <button onclick="testGoogleAuthRoute()">
+          Verificar Rota /auth/google
+        </button>
+        <div id="google-route-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>3. Login com Google OAuth</h3>
+        <button onclick="loginWithGoogle()">Fazer Login com Google</button>
+        <div id="login-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>4. Verificar Token (se logado)</h3>
+        <button onclick="checkToken()">Verificar Token Atual</button>
+        <div id="token-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>5. Testar API de Atendentes</h3>
+        <button onclick="testAtendentesAPI()">Testar /atendentes/me</button>
+        <div id="atendentes-result"></div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = 'http://localhost:3000';
+
+      async function testBackendConnection() {
+        const resultDiv = document.getElementById('connection-result');
+        resultDiv.innerHTML = '<em>Testando conexão...</em>';
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/`);
+          const text = await response.text();
+          resultDiv.innerHTML = `
+                    <div class="result">
+                        ✅ <strong>Conexão OK</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${text}</pre>
+                    </div>
+                `;
+        } catch (error) {
+          resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro de conexão:</strong> ${error.message}
+                    </div>
+                `;
+        }
+      }
+
+      async function testGoogleAuthRoute() {
+        const resultDiv = document.getElementById('google-route-result');
+        resultDiv.innerHTML = '<em>Verificando rota...</em>';
+
+        try {
+          // Fazemos um fetch mas não seguimos o redirect
+          const response = await fetch(`${API_BASE_URL}/auth/google`, {
+            method: 'GET',
+            redirect: 'manual', // Não seguir redirects automaticamente
+          });
+
+          if (response.status === 0 || response.type === 'opaqueredirect') {
+            resultDiv.innerHTML = `
+                        <div class="result">
+                            ✅ <strong>Rota funcionando</strong><br>
+                            A rota /auth/google está redirecionando para o Google (comportamento esperado)
+                        </div>
+                    `;
+          } else {
+            resultDiv.innerHTML = `
+                        <div class="result">
+                            ⚠️ <strong>Status inesperado:</strong> ${response.status}<br>
+                            Pode indicar problema na configuração OAuth
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro:</strong> ${error.message}
+                    </div>
+                `;
+        }
+      }
+
+      function loginWithGoogle() {
+        const resultDiv = document.getElementById('login-result');
+        resultDiv.innerHTML = `
+                <div class="result">
+                    🔄 <strong>Redirecionando para Google...</strong><br>
+                    Você será redirecionado para fazer login
+                </div>
+            `;
+
+        // Redirecionar para o Google OAuth
+        setTimeout(() => {
+          window.location.href = `${API_BASE_URL}/auth/google`;
+        }, 1000);
+      }
+
+      function checkToken() {
+        const resultDiv = document.getElementById('token-result');
+        const token = localStorage.getItem('access_token');
+        const userData = localStorage.getItem('user_data');
+
+        if (token && userData) {
+          const user = JSON.parse(userData);
+          resultDiv.innerHTML = `
+                    <div class="result">
+                        ✅ <strong>Token encontrado</strong><br>
+                        <strong>Usuário:</strong> ${user.nome || 'N/A'}<br>
+                        <strong>Email:</strong> ${user.email || 'N/A'}<br>
+                        <strong>Token:</strong> ${token.substring(0, 20)}...<br>
+                        <button onclick="localStorage.clear(); location.reload();">Limpar Dados</button>
+                    </div>
+                `;
+        } else {
+          resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Nenhum token encontrado</strong><br>
+                        Faça login primeiro
+                    </div>
+                `;
+        }
+      }
+
+      async function testAtendentesAPI() {
+        const resultDiv = document.getElementById('atendentes-result');
+        const token = localStorage.getItem('access_token');
+
+        if (!token) {
+          resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Token necessário</strong><br>
+                        Faça login primeiro
+                    </div>
+                `;
+          return;
+        }
+
+        resultDiv.innerHTML = '<em>Testando API...</em>';
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/atendentes/me`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            resultDiv.innerHTML = `
+                        <div class="result">
+                            ✅ <strong>API funcionando</strong><br>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+          } else {
+            resultDiv.innerHTML = `
+                        <div class="result error">
+                            ❌ <strong>Erro ${response.status}:</strong><br>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro na requisição:</strong> ${error.message}
+                    </div>
+                `;
+        }
+      }
+
+      // Verificar se voltou do OAuth
+      window.addEventListener('load', function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const error = urlParams.get('error');
+
+        if (token) {
+          localStorage.setItem('access_token', token);
+
+          // Buscar dados do usuário
+          fetch(`${API_BASE_URL}/atendentes/me`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              localStorage.setItem('user_data', JSON.stringify(data));
+
+              document.getElementById('login-result').innerHTML = `
+                        <div class="result">
+                            ✅ <strong>Login realizado com sucesso!</strong><br>
+                            <strong>Usuário:</strong> ${data.nome}<br>
+                            <strong>Email:</strong> ${data.email}
+                        </div>
+                    `;
+            })
+            .catch((err) => {
+              document.getElementById('login-result').innerHTML = `
+                        <div class="result error">
+                            ⚠️ <strong>Login OK, mas erro ao buscar perfil:</strong> ${err.message}
+                        </div>
+                    `;
+            });
+
+          // Limpar URL
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
+        }
+
+        if (error) {
+          document.getElementById('login-result').innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro na autenticação:</strong> ${decodeURIComponent(error)}
+                    </div>
+                `;
+
+          // Limpar URL
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

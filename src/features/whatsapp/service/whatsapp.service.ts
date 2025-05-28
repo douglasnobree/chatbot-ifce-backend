@@ -36,7 +36,6 @@ export class WhatsappService implements OnModuleInit {
     private configService: ConfigService,
     private readonly PrismaService: PrismaService,
     private readonly sessionService: SessionService,
-    
   ) {
     this.apiUrl = this.configService.get<string>('WHATSAPP_API_URL');
     this.apiKey = this.configService.get<string>('WHATSAPP_API_KEY');
@@ -485,6 +484,39 @@ export class WhatsappService implements OnModuleInit {
         `Failed to setup webhook for instance: ${instance}`,
         error,
       );
+      throw error;
+    }
+  }
+
+  async removeInstance(instance: string): Promise<{ success: boolean }> {
+    this.logger.log(`Removing WhatsApp instance: ${instance}`);
+
+    if (!instance) {
+      throw new HttpException(
+        'ID da instância é obrigatório',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      await this.makeRequest({
+        method: 'DELETE',
+        url: `/instance/logout/${instance}`,
+      });
+
+      await this.makeRequest({
+        method: 'DELETE',
+        url: `/instance/delete/${instance}`,
+      });
+      await this.PrismaService.whatsAppSession.delete({
+        where: {
+          InstanceName: instance,
+        },
+      });
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Failed to remove instance: ${instance}`, error);
       throw error;
     }
   }

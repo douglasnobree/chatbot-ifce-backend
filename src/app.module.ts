@@ -7,6 +7,7 @@ import { WhatsappService } from './features/whatsapp/service/whatsapp.service';
 import { WebhookModule } from './features/webhook/webhook.module';
 import { AuthModule } from './features/auth/auth.module';
 import { ChatbotModule } from './features/chatbot/chatbot.module';
+import { AtendentesModule } from './features/atendentes/atendentes.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { PrismaModule } from './prisma/prisma.module';
     WebhookModule,
     AuthModule,
     ChatbotModule,
+    AtendentesModule,
   ],
   controllers: [WhatsappController],
   providers: [WhatsappService],

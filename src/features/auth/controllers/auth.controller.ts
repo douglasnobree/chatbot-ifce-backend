@@ -13,26 +13,37 @@ export class AuthController {
   async googleAuth() {
     // O Google OAuth redireciona para o callback
   }
-
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleAuthCallback(@Req() req, @Res() res: Response) {
-    // Após autenticação bem-sucedida, recebemos o usuário do Guard
-    const user = req.user as User;
+    try {
+      // Após autenticação bem-sucedida, recebemos o usuário do Guard
+      const user = req.user as User;
 
-    // Chamamos o serviço de login para gerar o token JWT
-    const authResult = await this.authService.login(user);
+      // Chamamos o serviço de login para gerar o token JWT
+      const authResult = await this.authService.login(user);
 
-    // Você pode redirecionar o usuário para a sua aplicação frontend
-    // com o token, ou simplesmente retornar o token como resposta
+      console.log('User authenticated:', user.email);
+      console.log('JWT Token generated'); // Redirecionar para a página do painel com o token
+      const redirectUrl = `http://localhost:3000/?token=${authResult.access_token}`;
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('Erro no callback do Google:', error);
 
-    // Opção 1: Redirecionamento para o frontend
-    // return res.redirect(`${process.env.FRONTEND_URL}?token=${authResult.access_token}`);
+      // Redirecionar com erro
+      const errorMessage = encodeURIComponent(
+        'Erro na autenticação. Tente novamente.',
+      );
+    }
+  }
 
-    // Opção 2: Retornar token diretamente (para APIs)
-    console.log('User authenticated:', user);
-    console.log('JWT Token:', authResult.access_token);
-    
-    return res.status(200).json(authResult);
+  @Get('verify')
+  async verifyToken(@Req() req) {
+    // Endpoint para verificar se o token é válido
+    // Este endpoint será protegido automaticamente pelo JwtAuthGuard quando usado
+    return {
+      message: 'Token válido',
+      user: req.user,
+    };
   }
 }
