@@ -6,6 +6,8 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { json } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -49,5 +51,25 @@ async function bootstrap() {
     `\x1b[36m🎧 Painel do Atendente: \x1b[33mhttp://localhost:${port}/painel-atendente.html\x1b[0m`,
   );
   logger.log(separator.repeat(50));
+
+  // Garantir que o diretório de uploads exista
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  const mediaDir = path.join(uploadsDir, 'media');
+
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  if (!fs.existsSync(mediaDir)) {
+    fs.mkdirSync(mediaDir, { recursive: true });
+  }
+
+  app.useGlobalPipes(new ValidationPipe());
+  app.enableCors();
+
+  // Configurar acesso a arquivos estáticos
+  app.useStaticAssets(path.join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads',
+  });
 }
 bootstrap();

@@ -4,6 +4,8 @@ import {
   HttpException,
   HttpStatus,
   OnModuleInit,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
@@ -16,6 +18,9 @@ import { SendMessageDto } from '../dto/send-message.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { InstanceResponseCreateDto } from '../dto/instance-response-create.dto';
 import { SessionService } from 'src/features/chatbot/services/session.service';
+import * as fs from 'fs';
+import * as FormData from 'form-data';
+import * as mime from 'mime-types';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -221,15 +226,37 @@ export class WhatsappService implements OnModuleInit {
         },
       });
       if (response.connectionStatus === 'ONLINE') {
-        await this.PrismaService.whatsAppSession.update({
+        const allSessions = await this.PrismaService.whatsAppSession.findMany({
           where: {
-            id: response.id,
-          },
-          data: {
             status: true,
-            numero_telefone: response.ownerJid,
           },
         });
+        if (allSessions.length > 0) {
+          await this.PrismaService.whatsAppSession.deleteMany({
+            where: {
+              status: true,
+              id: {
+                not: response.id,
+              },
+            },
+          });
+          await this.PrismaService.whatsAppSession.upsert({
+            where: {
+              id: response.id,
+            },
+            update: {
+              status: true,
+              numero_telefone: response.ownerJid || '',
+            },
+            create: {
+              id: response.id,
+              InstanceName: response.name,
+              jwt_token: '',
+              numero_telefone: response.ownerJid || '',
+              status: true,
+            },
+          });
+        }
       } else {
         await this.PrismaService.whatsAppSession.update({
           where: {
@@ -517,6 +544,146 @@ export class WhatsappService implements OnModuleInit {
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to remove instance: ${instance}`, error);
+      throw error;
+    }
+  }
+
+  // Método existente para enviar mensagens de texto
+  async sendTextMessage(instanceName: string, sendMessageDto: SendMessageDto) {
+    try {
+      const response = await axios.post(
+        `${this.apiUrl}/message/sendText/${instanceName}`,
+        sendMessageDto,
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Erro ao enviar mensagem de texto: ${error.message}`);
+      if (error.response) {
+        throw new BadRequestException(
+          error.response.data?.error || 'Erro na API do WhatsApp',
+        );
+      }
+      throw error;
+    }
+  }
+
+  // Novo método para enviar arquivos de mídia
+  async sendMediaFile(
+    instanceName: string,
+    options: {
+      number: string;
+      caption?: string;
+      mediaPath: string;
+      fileName: string;
+      mediaType: string;
+      presence?: string;
+      delay?: number;
+      quotedMessageId?: number;
+      externalAttributes?: any;
+    },
+  ) {
+    try {
+      // Verificar se o arquivo existe
+      if (!fs.existsSync(options.mediaPath)) {
+        throw new NotFoundException(
+          `Arquivo não encontrado: ${options.mediaPath}`,
+        );
+      }
+
+      // Criar o FormData para enviar o arquivo
+      const formData = new FormData();
+      formData.append('number', options.number);
+
+      if (options.caption) {
+        formData.append('caption', options.caption);
+      }
+
+      // Adicionar o arquivo
+      const fileBuffer = fs.readFileSync(options.mediaPath);
+      const mimeType =
+        mime.lookup(options.mediaPath) || 'application/octet-stream';
+      formData.append('attachment', fileBuffer, {
+        filename: options.fileName,
+        contentType: mimeType,
+      });
+
+      formData.append('mediatype', options.mediaType);
+
+      if (options.presence) {
+        formData.append('presence', options.presence);
+      }
+
+      if (options.delay) {
+        formData.append('delay', options.delay.toString());
+      }
+
+      if (options.quotedMessageId) {
+        formData.append('quotedMessageId', options.quotedMessageId.toString());
+      }
+
+      if (options.externalAttributes) {
+        formData.append(
+          'externalAttributes',
+          JSON.stringify(options.externalAttributes),
+        );
+      }
+
+      this.logger.log(
+        `Enviando arquivo para ${options.number} via WhatsApp: ${options.fileName}`,
+      );
+
+      // Enviar a requisição para a API do WhatsApp
+      const response = await axios.post(
+        `${this.apiUrl}/message/sendMediaFile/${instanceName}`,
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+          },
+        },
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Erro ao enviar arquivo de mídia: ${error.message}`);
+      if (error.response) {
+        throw new BadRequestException(
+          error.response.data?.error || 'Erro na API do WhatsApp',
+        );
+      }
+      throw error;
+    }
+  }
+
+  async getEstudantNumberByProtocolId(protocolId: string): Promise<string> {
+    this.logger.log(`Buscando número do estudante pelo protocolo: ${protocolId}`);
+
+    if (!protocolId) {
+      throw new BadRequestException('ID do protocolo é obrigatório');
+    }
+
+    try {
+      const protocolo = await this.PrismaService.protocolo.findUnique({
+      where: { numero: protocolId },
+      include: {
+        estudante: { 
+          select: {
+            telefone: true, 
+          },
+        },
+      },
+    });
+
+      if (!protocolo || !protocolo.estudante.telefone) {
+        throw new NotFoundException('Protocolo não encontrado ou sem número');
+      }
+
+      return protocolo.estudante.telefone;
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar número do estudante pelo protocolo: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

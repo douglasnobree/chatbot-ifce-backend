@@ -22,6 +22,9 @@ interface ChatMessage {
   nome?: string;
   setor?: string;
   mensagem: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'document' | 'video' | 'audio';
+  fileName?: string;
 }
 
 interface AtendimentoSession {
@@ -50,6 +53,7 @@ export class AtendimentoGateway
     private readonly protocoloService: ProtocoloService,
     private readonly prisma: PrismaService,
     private readonly mensagensService: MensagensService,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -175,6 +179,9 @@ export class AtendimentoGateway
       sessao_id: string;
       mensagem: string;
       sender: 'usuario' | 'atendente';
+      mediaUrl?: string;
+      mediaType?: 'image' | 'document' | 'video' | 'audio';
+      fileName?: string;
     },
     @ConnectedSocket() client: Socket,
   ) {
@@ -197,18 +204,88 @@ export class AtendimentoGateway
         where: { id: data.sessao_id },
       });
       if (sessaoDB) {
-        await this.mensagensService.enviarMensagem(sessaoDB, mensagemFormatada);
+        // Se tiver mídia, envia como mídia
+        if (data.mediaUrl && data.mediaType) {
+          // A mensagem já é enviada pelo front-end diretamente para o WhatsApp API
+          // Aqui apenas registramos que foi enviado
+          this.logger.log(
+            `[ENVIAR_MIDIA] Arquivo enviado para WhatsApp: ${data.fileName}`,
+          );
+        } else {
+          // Envia texto normal
+          await this.mensagensService.enviarMensagem(
+            sessaoDB,
+            mensagemFormatada,
+          );
+        }
       }
     }
 
-    // Emite para todos os clientes na sala, não apenas para quem enviou
+    // Emite para todos os clientes na sala, incluindo metadados de mídia
     this.server.to(data.sessao_id).emit('novaMensagem', {
       sender: data.sender,
       mensagem: mensagemFormatada,
+      mediaUrl: data.mediaUrl,
+      mediaType: data.mediaType,
+      fileName: data.fileName,
     });
+
+    // Registra no histórico do protocolo, incluindo informação sobre arquivos
+    let conteudoHistorico = mensagemFormatada;
+    if (data.fileName) {
+      conteudoHistorico = `[Arquivo: ${data.fileName}] ${mensagemFormatada}`;
+    }
+
     await this.protocoloService.registrarMensagemProtocolo({
       protocolo_id: protocolo.id,
-      conteudo: mensagemFormatada,
+      conteudo: conteudoHistorico,
+      origem: data.sender === 'usuario' ? 'USUARIO' : 'ATENDENTE',
+    });
+  }
+
+  @SubscribeMessage('enviarArquivo')
+  async handleEnviarArquivo(
+    @MessageBody()
+    data: {
+      sessao_id: string;
+      mensagem?: string;
+      sender: 'usuario' | 'atendente';
+      mediaUrl: string;
+      mediaType: 'image' | 'document' | 'video' | 'audio';
+      fileName: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    // Similar ao enviar mensagem, mas específico para arquivos
+    this.logger.log(
+      `[ENVIAR_ARQUIVO] Recebendo arquivo tipo ${data.mediaType}: ${data.fileName}`,
+    );
+
+    // Busca o protocolo aberto da sessão
+    const protocolo = await this.prisma.protocolo.findFirst({
+      where: { sessao_id: data.sessao_id, status: 'EM_ATENDIMENTO' },
+      include: { atendente: true },
+    });
+    if (!protocolo) {
+      this.logger.warn(
+        `[ENVIAR_ARQUIVO] Protocolo não encontrado para sessão ${data.sessao_id}`,
+      );
+      return;
+    }
+
+    // Emite para todos os clientes na sala
+    this.server.to(data.sessao_id).emit('novoArquivo', {
+      sender: data.sender,
+      mensagem: data.mensagem || '',
+      mediaUrl: data.mediaUrl,
+      mediaType: data.mediaType,
+      fileName: data.fileName,
+    });
+
+    // Registra no histórico do protocolo
+    await this.protocoloService.registrarMensagemProtocolo({
+      protocolo_id: protocolo.id,
+      conteudo: `[Arquivo: ${data.fileName}] ${data.mensagem || ''}`,
       origem: data.sender === 'usuario' ? 'USUARIO' : 'ATENDENTE',
     });
   }
@@ -342,6 +419,11 @@ export class AtendimentoGateway
   async processarMensagemWhatsApp(
     sessaoDB: Sessao,
     mensagem: string,
+    mediaInfo?: {
+      url: string;
+      type: 'image' | 'document' | 'video' | 'audio';
+      fileName: string;
+    },
   ): Promise<void> {
     try {
       console.log(
@@ -349,6 +431,8 @@ export class AtendimentoGateway
         mensagem,
         'Sessão:',
         sessaoDB,
+        'Mídia:',
+        mediaInfo,
       );
 
       const protocolo = await this.prisma.protocolo.findFirst({
@@ -362,16 +446,23 @@ export class AtendimentoGateway
         return;
       }
 
-      console.log(mensagem);
       // Emite a mensagem para todos os sockets na sala da sessão
+      // Incluindo metadados de mídia se houver
       this.server.to(sessaoDB.id).emit('novaMensagem', {
         sender: 'usuario',
         mensagem,
+        mediaUrl: mediaInfo?.url,
+        mediaType: mediaInfo?.type,
+        fileName: mediaInfo?.fileName,
+        origem: 'whatsapp',
       });
 
+      // Registra no histórico do protocolo
       await this.protocoloService.registrarMensagemProtocolo({
         protocolo_id: protocolo.id,
-        conteudo: mensagem,
+        conteudo: mediaInfo
+          ? `[Arquivo: ${mediaInfo.fileName}] ${mensagem}`
+          : mensagem,
         origem: 'USUARIO',
       });
     } catch (error) {

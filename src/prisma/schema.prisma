@@ -1,0 +1,14 @@
+model MensagemProtocolo {
+  id            String    @id @default(uuid())
+  protocolo_id  String
+  protocolo     Protocolo @relation(fields: [protocolo_id], references: [id], onDelete: Cascade)
+  conteudo      String
+  origem        String // 'USUARIO', 'ATENDENTE', 'SISTEMA'
+  media_url     String? // URL da mídia, se houver
+  media_type    String? // 'image', 'document', 'video', 'audio'
+  file_name     String? // Nome original do arquivo
+  criado_em     DateTime  @default(now())
+  atualizado_em DateTime  @updatedAt
+
+  @@index([protocolo_id])
+}

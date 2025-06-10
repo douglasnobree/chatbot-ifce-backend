@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { MensagensService } from './mensagens.service';
 import { SessionService } from './session.service';
 import { UserDataService } from './user-data.service';
@@ -249,24 +249,26 @@ export class ProtocoloService {
    * Registra uma mensagem em um protocolo
    * @param data Dados da mensagem
    */
-  async registrarMensagemProtocolo(data: {
+  async registrarMensagemProtocolo({
+    protocolo_id,
+    conteudo,
+    origem,
+  }: {
     protocolo_id: string;
     conteudo: string;
-    origem: string; // USUARIO, ATENDENTE, SISTEMA
+    origem: 'USUARIO' | 'ATENDENTE' | 'SISTEMA';
   }) {
     try {
-      const mensagem = await this.prisma.mensagemProtocolo.create({
+      return await this.prisma.mensagemProtocolo.create({
         data: {
-          protocolo_id: data.protocolo_id,
-          conteudo: data.conteudo,
-          origem: data.origem,
+          protocolo_id,
+          conteudo,
+          origem,
         },
       });
-
-      return mensagem;
     } catch (error) {
       this.logger.error(
-        `Erro ao registrar mensagem de protocolo: ${error.message}`,
+        `Erro ao registrar mensagem no protocolo: ${error.message}`,
         error.stack,
       );
       throw error;
