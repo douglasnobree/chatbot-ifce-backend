@@ -290,6 +290,22 @@ export class WhatsappService implements OnModuleInit {
     }
 
     try {
+      const checkStatus = await this.PrismaService.whatsAppSession.findFirst({
+        where: {
+          status: true,
+        },
+      });
+      if (checkStatus) {
+        await this.makeRequest<InstanceResponseCreateDto>({
+          method: 'DELETE',
+          url: `/instance/logout/${checkStatus.InstanceName}`,
+        });
+        await this.makeRequest<InstanceResponseCreateDto>({
+          method: 'DELETE',
+          url: `/instance/delete/${checkStatus.InstanceName}`,
+        });
+      }
+
       const response = await this.makeRequest<QrCodeConnectionDTO>({
         method: 'GET',
         url: `/instance/connect/${instance}`,
@@ -656,7 +672,9 @@ export class WhatsappService implements OnModuleInit {
   }
 
   async getEstudantNumberByProtocolId(protocolId: string): Promise<string> {
-    this.logger.log(`Buscando número do estudante pelo protocolo: ${protocolId}`);
+    this.logger.log(
+      `Buscando número do estudante pelo protocolo: ${protocolId}`,
+    );
 
     if (!protocolId) {
       throw new BadRequestException('ID do protocolo é obrigatório');
@@ -664,15 +682,15 @@ export class WhatsappService implements OnModuleInit {
 
     try {
       const protocolo = await this.PrismaService.protocolo.findUnique({
-      where: { numero: protocolId },
-      include: {
-        estudante: { 
-          select: {
-            telefone: true, 
+        where: { numero: protocolId },
+        include: {
+          estudante: {
+            select: {
+              telefone: true,
+            },
           },
         },
-      },
-    });
+      });
 
       if (!protocolo || !protocolo.estudante.telefone) {
         throw new NotFoundException('Protocolo não encontrado ou sem número');
