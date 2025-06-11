@@ -9,6 +9,8 @@ import { MenuTexts, SuccessMessages } from '../../constants/menu-texts';
 import { SessionState } from '../../entities/session.entity';
 import { ProtocoloService } from '../../services/protocolo.service';
 import { AtendimentoGateway } from './atendimento.gateway';
+import axios from 'axios';
+import * as yaml from 'js-yaml';
 
 @Injectable()
 export class ComunicacaoSetoresHandler implements MenuHandler {
@@ -129,7 +131,7 @@ export class ComunicacaoSetoresHandler implements MenuHandler {
 
       // Verifica se a mensagem contém dados de usuário formatados
       console.log('msgNormalizada', msgNormalizada);
-      const dadosUsuario = this.extrairDadosUsuario(mensagem);
+      const dadosUsuario = await this.extrairDadosUsuario(mensagem);
       console.log('dadosUsuario', dadosUsuario);
       // Se encontrou dados do usuário, atualiza primeiro
       if (dadosUsuario) {
@@ -177,7 +179,7 @@ export class ComunicacaoSetoresHandler implements MenuHandler {
       }
       console.log('msgNormalizada', msgNormalizada);
       // Verifica se a mensagem contém dados de usuário formatados
-      const dadosUsuario = this.extrairDadosUsuario(mensagem);
+      const dadosUsuario = await this.extrairDadosUsuario(mensagem);
       console.log('dadosUsuario', dadosUsuario);
       // Se encontrou dados do usuário, atualiza primeiro
       if (dadosUsuario) {
@@ -238,100 +240,53 @@ export class ComunicacaoSetoresHandler implements MenuHandler {
   /**
    * Extrai os dados do usuário a partir da mensagem formatada
    */
-  private extrairDadosUsuario(mensagem: string): Partial<Estudante> | null {
+  private async extrairDadosUsuario(
+    mensagem: string,
+  ): Promise<Partial<Estudante> | null> {
     try {
-      // Formato esperado:
-      // 🧍 Nome completo:
-      // 📞 Telefone:
-      // 📧 E-mail:
-      // 🎓 Curso (se aplicável):
-
-      // Tenta extrair por padrões com emojis
-      let nomeMatch = mensagem.match(/🧍.*?Nome completo:\s*(.+?)(?:\n|$)/i);
-      let telefoneMatch = mensagem.match(/📞.*?Telefone:\s*(.+?)(?:\n|$)/i);
-      let emailMatch = mensagem.match(/📧.*?E-mail:\s*(.+?)(?:\n|$)/i);
-      let cursoMatch = mensagem.match(/🎓.*?Curso.*?:\s*(.+?)(?:\n|$)/i);
-
-      // Se não encontrou com emoji, tenta sem emoji
-      if (!nomeMatch) nomeMatch = mensagem.match(/Nome.*?:\s*(.+?)(?:\n|$)/i);
-      if (!telefoneMatch)
-        telefoneMatch = mensagem.match(/Telefone.*?:\s*(.+?)(?:\n|$)/i);
-      if (!emailMatch)
-        emailMatch = mensagem.match(/E-?mail.*?:\s*(.+?)(?:\n|$)/i);
-      if (!cursoMatch)
-        cursoMatch = mensagem.match(/Curso.*?:\s*(.+?)(?:\n|$)/i);
-
-      // Se ainda não encontrou, tenta buscar por linhas
-      if (!nomeMatch || !telefoneMatch || !emailMatch) {
-        const linhas = mensagem.split('\n').map((linha) => linha.trim());
-
-        // Assume que cada linha pode ser um campo
-        for (const linha of linhas) {
-          if (
-            !nomeMatch &&
-            (linha.includes('Nome') ||
-              (!telefoneMatch && !emailMatch && !cursoMatch))
-          ) {
-            const valor = linha.includes(':')
-              ? linha.split(':')[1].trim()
-              : linha;
-            if (valor && !nomeMatch) nomeMatch = [null, valor];
-            continue;
-          }
-
-          if (
-            !telefoneMatch &&
-            (linha.includes('Telefone') ||
-              linha.match(/^\d{10,11}$/) ||
-              linha.match(/^\(\d{2}\) \d{4,5}-\d{4}$/))
-          ) {
-            const valor = linha.includes(':')
-              ? linha.split(':')[1].trim()
-              : linha;
-            if (valor) telefoneMatch = [null, valor];
-            continue;
-          }
-
-          if (
-            !emailMatch &&
-            (linha.includes('E-mail') || linha.includes('@'))
-          ) {
-            const valor = linha.includes(':')
-              ? linha.split(':')[1].trim()
-              : linha;
-            if (valor) emailMatch = [null, valor];
-            continue;
-          }
-
-          if (!cursoMatch && linha.includes('Curso')) {
-            const valor = linha.includes(':')
-              ? linha.split(':')[1].trim()
-              : linha;
-            if (valor) cursoMatch = [null, valor];
-          }
-        }
-      }
-
-      // Extrai os dados, se existirem
-      const nome = nomeMatch ? nomeMatch[1].trim() : null;
-      const telefone = telefoneMatch ? telefoneMatch[1].trim() : null;
-      const email = emailMatch ? emailMatch[1].trim() : null;
-      const curso = cursoMatch ? cursoMatch[1].trim() : 'Não informado';
-
-      // Verifica se os dados essenciais foram fornecidos
-      if (!nome || !telefone || !email) {
-        return null;
-      }
-
-      // Retorna os dados formatados
-      return {
-        nome,
-        telefone,
-        email,
-        curso,
-      };
+      const yamlString = await getYamlFromAI(mensagem);
+      if (!yamlString) return null;
+      const dados = yaml.load(yamlString) as any;
+      if (!dados) return null;
+      const nome = dados.nome?.trim() || null;
+      const telefone = dados.telefone?.trim() || null;
+      const email = dados.email?.trim() || null;
+      const curso = dados.curso?.trim() || 'Não informado';
+      if (!nome || !telefone || !email) return null;
+      return { nome, telefone, email, curso };
     } catch (error) {
       return null;
     }
+  }
+}
+
+const MODEL = 'gemini-2.0-flash';
+const API_KEY = process.env.GOOGLE_API_KEY || '';
+
+async function getYamlFromAI(userInput: string): Promise<string | undefined> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
+  const prompt = `
+Extraia os dados do usuário abaixo e retorne apenas em YAML no formato:
+
+nome:
+telefone:
+email:
+curso:
+
+caso não tenha algum dado, deixe em branco. e não coloque nenhum outro texto ou formatação.
+caso você perceba alguma informação que não seja nome, telefone, email ou curso, ignore.
+no telefone, coloque apenas os números, sem parênteses ou traços.
+Texto do usuário:
+${userInput}
+`.trim();
+
+  try {
+    const response = await axios.post(url, {
+      contents: [{ parts: [{ text: prompt }] }],
+    });
+    const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text;
+  } catch (error) {
+    return undefined;
   }
 }

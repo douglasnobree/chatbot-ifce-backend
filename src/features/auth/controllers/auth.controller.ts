@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { GoogleAuthGuard } from '../guards/google-auth.guard';
 import { User } from '../entities/user.entity';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -23,9 +24,8 @@ export class AuthController {
       // Chamamos o serviço de login para gerar o token JWT
       const authResult = await this.authService.login(user);
 
-      console.log('User authenticated:', user.email);
-      console.log('JWT Token generated'); // Redirecionar para a página do painel com o token
-      const redirectUrl = `http://localhost:3000/?token=${authResult.access_token}`;
+     
+      const redirectUrl = `http://localhost:3000/auth?token=${authResult.access_token}`;
       return res.redirect(redirectUrl);
     } catch (error) {
       console.error('Erro no callback do Google:', error);
@@ -38,9 +38,8 @@ export class AuthController {
   }
 
   @Get('verify')
+  @UseGuards(JwtAuthGuard)
   async verifyToken(@Req() req) {
-    // Endpoint para verificar se o token é válido
-    // Este endpoint será protegido automaticamente pelo JwtAuthGuard quando usado
     return {
       message: 'Token válido',
       user: req.user,

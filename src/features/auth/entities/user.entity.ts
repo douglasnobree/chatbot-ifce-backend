@@ -7,4 +7,5 @@ export class User {
   accessToken: string;
   isAtendente?: boolean;
   atendenteId?: string;
+  departamento?: string; 
 }

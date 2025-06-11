@@ -297,7 +297,7 @@ export class AtendimentoGateway
       where: {
         OR: [{ status: 'ABERTO' }, { status: 'EM_ATENDIMENTO' }],
       },
-      include: { estudante: true, atendente: true },
+      include: { estudante: true, atendente: true, mensagens_protocolo: true },
     });
     client.emit('atendimentosAbertos', response);
   }

@@ -34,8 +34,19 @@ async function bootstrap() {
 
   // Obtenha a porta do .env ou use 3000 como padrão
   const port = configService.get<number>('PORT', 3000);
+  // Configuração completa do CORS
+  app.enableCors({
+    origin: ['http://localhost:3000', 'https://seu-dominio-em-producao.com'], // Origens permitidas
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+    allowedHeaders: 'Origin,X-Requested-With,Content-Type,Accept,Authorization',
+  });
 
-  app.enableCors();
+  // Configuração global de validação
+  app.useGlobalPipes(new ValidationPipe());
+
   await app.listen(port);
 
   const separator = '═';
@@ -63,9 +74,6 @@ async function bootstrap() {
   if (!fs.existsSync(mediaDir)) {
     fs.mkdirSync(mediaDir, { recursive: true });
   }
-
-  app.useGlobalPipes(new ValidationPipe());
-  app.enableCors();
 
   // Configurar acesso a arquivos estáticos
   app.useStaticAssets(path.join(__dirname, '..', 'uploads'), {

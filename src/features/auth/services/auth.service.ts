@@ -30,6 +30,7 @@ export class AuthService {
         picture: profile.photos[0].value,
         accessToken: '',
         isAtendente: false,
+        departamento: profile.department || '', // 
       };
 
       // Tenta criar ou atualizar o atendente
@@ -38,10 +39,9 @@ export class AuthService {
           await this.atendentesService.createOrUpdateFromGoogleAuth(profile);
         user.isAtendente = true;
         user.atendenteId = atendente.id;
+        user.departamento = atendente.departamento || user.departamento; // Atualiza o departamento se necessário
         this.logger.log(`Usuário autenticado como atendente: ${email}`);
       } catch (error) {
-        // Se não conseguir criar como atendente, o usuário ainda pode se autenticar
-        // mas não terá permissões de atendente
         this.logger.warn(
           `Usuário ${email} autenticado sem permissões de atendente: ${error.message}`,
         );
@@ -82,6 +82,7 @@ export class AuthService {
         picture: user.picture,
         isAtendente: user.isAtendente,
         atendenteId: user.atendenteId,
+        departamento: user.departamento || '',
       },
     };
   }

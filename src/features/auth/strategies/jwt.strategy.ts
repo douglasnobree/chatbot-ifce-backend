@@ -20,6 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       lastName: payload.lastName,
       isAtendente: payload.isAtendente || false,
       atendenteId: payload.atendenteId,
+      departamento: payload.departamento || '', // Campo opcional para o departamento do usuário
     };
   }
 }
