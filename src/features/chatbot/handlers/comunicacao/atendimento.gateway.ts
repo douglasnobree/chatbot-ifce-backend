@@ -18,7 +18,7 @@ import { Sessao } from '@prisma/client';
 import { stat } from 'fs';
 
 interface ChatMessage {
-  sender: 'usuario' | 'atendente';
+  sender: 'USUARIO' | 'ATENDENTE';
   nome?: string;
   setor?: string;
   mensagem: string;
@@ -178,7 +178,7 @@ export class AtendimentoGateway
     data: {
       sessao_id: string;
       mensagem: string;
-      sender: 'usuario' | 'atendente';
+      sender: 'USUARIO' | 'ATENDENTE';
       mediaUrl?: string;
       mediaType?: 'image' | 'document' | 'video' | 'audio';
       fileName?: string;
@@ -197,7 +197,7 @@ export class AtendimentoGateway
       return;
     }
     let mensagemFormatada = data.mensagem;
-    if (data.sender === 'atendente' && protocolo.atendente) {
+    if (data.sender === 'ATENDENTE' && protocolo.atendente) {
       mensagemFormatada = `[${protocolo.atendente.nome}][${protocolo.setor}] - ${data.mensagem}`;
       // Envia para WhatsApp
       const sessaoDB = await this.prisma.sessao.findUnique({
@@ -220,7 +220,9 @@ export class AtendimentoGateway
         }
       }
     }
-
+    const sessaoDB = await this.prisma.sessao.findUnique({
+      where: { id: data.sessao_id },
+    });
     // Emite para todos os clientes na sala, incluindo metadados de mídia
     this.server.to(data.sessao_id).emit('novaMensagem', {
       sender: data.sender,
@@ -228,6 +230,7 @@ export class AtendimentoGateway
       mediaUrl: data.mediaUrl,
       mediaType: data.mediaType,
       fileName: data.fileName,
+      protocoloId: sessaoDB.id,
     });
 
     // Registra no histórico do protocolo, incluindo informação sobre arquivos
@@ -239,7 +242,7 @@ export class AtendimentoGateway
     await this.protocoloService.registrarMensagemProtocolo({
       protocolo_id: protocolo.id,
       conteudo: conteudoHistorico,
-      origem: data.sender === 'usuario' ? 'USUARIO' : 'ATENDENTE',
+      origem: data.sender === 'USUARIO' ? 'USUARIO' : 'ATENDENTE',
     });
   }
 
@@ -249,7 +252,7 @@ export class AtendimentoGateway
     data: {
       sessao_id: string;
       mensagem?: string;
-      sender: 'usuario' | 'atendente';
+      sender: 'USUARIO' | 'ATENDENTE';
       mediaUrl: string;
       mediaType: 'image' | 'document' | 'video' | 'audio';
       fileName: string;
@@ -286,7 +289,7 @@ export class AtendimentoGateway
     await this.protocoloService.registrarMensagemProtocolo({
       protocolo_id: protocolo.id,
       conteudo: `[Arquivo: ${data.fileName}] ${data.mensagem || ''}`,
-      origem: data.sender === 'usuario' ? 'USUARIO' : 'ATENDENTE',
+      origem: data.sender === 'USUARIO' ? 'USUARIO' : 'ATENDENTE',
     });
   }
 
@@ -449,12 +452,13 @@ export class AtendimentoGateway
       // Emite a mensagem para todos os sockets na sala da sessão
       // Incluindo metadados de mídia se houver
       this.server.to(sessaoDB.id).emit('novaMensagem', {
-        sender: 'usuario',
+        sender: 'USUARIO',
         mensagem,
         mediaUrl: mediaInfo?.url,
         mediaType: mediaInfo?.type,
         fileName: mediaInfo?.fileName,
         origem: 'whatsapp',
+        protocoloId: protocolo.id,
       });
 
       // Registra no histórico do protocolo

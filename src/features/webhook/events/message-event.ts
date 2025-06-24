@@ -103,8 +103,16 @@ export class MessageEventHandler
             );
             return;
           }
-        }
+        }                       
         if(data.keyRemoteJid == '558596856795@s.whatsapp.net') {
+          this.logger.debug('ana que mandou');
+          return;
+        }
+        if(data.keyRemoteJid == '5588923201935@s.whatsapp.net') {
+          this.logger.debug('ana que mandou');
+          return;
+        }
+        if(data.keyRemoteJid == '558881080839@s.whatsapp.net') {
           this.logger.debug('ana que mandou');
           return;
         }

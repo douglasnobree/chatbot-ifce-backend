@@ -190,6 +190,17 @@ export class WhatsappService implements OnModuleInit {
           status: false,
         },
       });
+      await this.PrismaService.sessao.updateMany({
+        where: {
+          instanceName: {
+            not: dados.instanceName,
+          },
+        },
+        data: {
+          instanceName: dados.instanceName,
+        },
+      });
+
       return response;
     } catch (error) {
       this.logger.error(
@@ -503,27 +514,22 @@ export class WhatsappService implements OnModuleInit {
       );
     }
 
-    try {
-      await this.makeRequest({
-        method: 'DELETE',
-        url: `/instance/logout/${instance}`,
-      });
+    const responseLogout = await this.makeRequest({
+      method: 'DELETE',
+      url: `/instance/logout/${instance}`,
+    });
 
-      await this.makeRequest({
-        method: 'DELETE',
-        url: `/instance/delete/${instance}`,
-      });
-      await this.PrismaService.whatsAppSession.delete({
-        where: {
-          InstanceName: instance,
-        },
-      });
-
-      return { success: true };
-    } catch (error) {
-      this.logger.error(`Failed to remove instance: ${instance}`, error);
-      throw error;
-    }
+    const responseDelete = await this.makeRequest({
+      method: 'DELETE',
+      url: `/instance/delete/${instance}`,
+    });
+    await this.PrismaService.whatsAppSession.delete({
+      where: {
+        InstanceName: instance,
+      },
+    });
+    // @ts-ignore
+    return { success: true, logout: responseLogout, delete: responseDelete };
   }
 
   async sendTextMessage(instanceName: string, sendMessageDto: SendMessageDto) {
@@ -633,7 +639,9 @@ export class WhatsappService implements OnModuleInit {
   }
 
   async getEstudantNumberByProtocolId(protocolId: string): Promise<string> {
-    this.logger.log(`Buscando número do estudante pelo protocolo: ${protocolId}`);
+    this.logger.log(
+      `Buscando número do estudante pelo protocolo: ${protocolId}`,
+    );
 
     if (!protocolId) {
       throw new BadRequestException('ID do protocolo é obrigatório');
@@ -641,15 +649,15 @@ export class WhatsappService implements OnModuleInit {
 
     try {
       const protocolo = await this.PrismaService.protocolo.findUnique({
-      where: { numero: protocolId },
-      include: {
-        estudante: { 
-          select: {
-            telefone: true, 
+        where: { numero: protocolId },
+        include: {
+          estudante: {
+            select: {
+              telefone: true,
+            },
           },
         },
-      },
-    });
+      });
 
       if (!protocolo || !protocolo.estudante.telefone) {
         throw new NotFoundException('Protocolo não encontrado ou sem número');
