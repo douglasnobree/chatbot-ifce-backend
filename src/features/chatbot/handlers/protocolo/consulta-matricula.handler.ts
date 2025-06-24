@@ -5,6 +5,7 @@ import { SessionService } from '../../services/session.service';
 import { MensagensService } from '../../services/mensagens.service';
 import { OperacoesBaseService } from '../../services/operacoes-base.service';
 import { UserDataService } from '../../services/user-data.service';
+import { CSVMatriculasService } from '../../services/csv-matriculas.service';
 import {
   MenuTexts,
   ErrorMessages,
@@ -15,12 +16,12 @@ import { Sessao } from '@prisma/client';
 @Injectable()
 export class ConsultaMatriculaHandler implements MenuHandler {
   private readonly logger = new Logger(ConsultaMatriculaHandler.name);
-
   constructor(
     private readonly sessionService: SessionService,
     private readonly mensagensService: MensagensService,
     private readonly operacoesBaseService: OperacoesBaseService,
     private readonly userDataService: UserDataService,
+    private readonly csvMatriculasService: CSVMatriculasService,
   ) {}
 
   /**
@@ -52,7 +53,7 @@ export class ConsultaMatriculaHandler implements MenuHandler {
   }
 
   /**
-   * Processa o input de CPF e telefone
+   * Processa o input de CPF
    */
   private async processarEntradaCpfTelefone(
     session: Sessao,
@@ -71,22 +72,10 @@ export class ConsultaMatriculaHandler implements MenuHandler {
       return;
     }
 
-    // Tenta extrair CPF e telefone
-    const partes = mensagem.split(',').map((part) => part.trim());
-
-    if (partes.length !== 2) {
-      await this.mensagensService.enviarMensagem(
-        session,
-        ErrorMessages.FORMATO_CPF_TELEFONE,
-      );
-      return;
-    }
-
-    const cpf = partes[0];
-    const telefone = partes[1];
+    const cpf = mensagem.trim();
 
     // Valida CPF (validação simples, apenas verifica se tem 11 dígitos)
-    if (!/^\\d{11}$/.test(cpf)) {
+    if (!/^\d{11}$/.test(cpf)) {
       await this.mensagensService.enviarMensagem(
         session,
         ErrorMessages.CPF_INVALIDO,
@@ -94,21 +83,9 @@ export class ConsultaMatriculaHandler implements MenuHandler {
       return;
     }
 
-    // Valida telefone (verifica se tem 4 dígitos)
-    if (!/^\\d{4}$/.test(telefone)) {
-      await this.mensagensService.enviarMensagem(
-        session,
-        ErrorMessages.TELEFONE_INVALIDO,
-      );
-      return;
-    }
-
     try {
-      // Busca o usuário no banco de dados
-      const usuario = await this.userDataService.findUserByCpfAndPhone(
-        cpf,
-        telefone,
-      );
+      // Busca o estudante no arquivo CSV
+      const estudante = await this.csvMatriculasService.buscarEstudantePorCPF(cpf);
 
       // Atualiza o estado da sessão
       await this.sessionService.updateSessionState(
@@ -116,17 +93,25 @@ export class ConsultaMatriculaHandler implements MenuHandler {
         SessionState.RESULTADO_CONSULTA,
       );
 
-      if (usuario) {
+      if (estudante) {
         // Atualizando os dados do usuário na sessão
-        await this.userDataService.updateUserData(session.userId, usuario);
+        const dadosEstudante = {
+          nome: estudante.Nome,
+          curso: estudante.Curso,
+          matricula: estudante.Matricula,
+          cpf: estudante.CPF,
+          telefone: estudante.Numero_telefone
+        };
+        
+        await this.userDataService.updateUserData(session.userId, dadosEstudante);
 
         // Exibe os dados encontrados
         await this.mensagensService.enviarMensagem(
           session,
           SuccessMessages.MATRICULA_LOCALIZADA(
-            usuario.nome,
-            usuario.curso,
-            'teste', //TODO
+            estudante.Nome,
+            estudante.Curso,
+            estudante.Matricula,
           ),
         );
       } else {

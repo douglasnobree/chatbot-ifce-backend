@@ -20,14 +20,12 @@ Você selecionou Protocolo. Escolha uma opção:
 4 - Justificar faltas  
 5 - Acompanhar andamento de processos  
 0 - Voltar ao menu principal`,
-
-  CONSULTA_MATRICULA: `Consulta por CPF + número de telefone
+  CONSULTA_MATRICULA: `Consulta por CPF
 Para localizar seu número de matrícula, informe:
 
 🧾 CPF (somente números)  
-📱 Últimos 4 dígitos do telefone cadastrado
 
-Ex: 12345678910, 2345
+Ex: 12345678910
 
 0 - Voltar ao menu principal`,
 
@@ -158,10 +156,7 @@ Por favor, informe com qual setor deseja conversar:
 /**
  * Constantes para mensagens de erro e validação
  */
-export const ErrorMessages = {
-  FORMATO_CPF_TELEFONE: `❌ Formato inválido. Por favor, informe o CPF e os últimos 4 dígitos do telefone separados por vírgula.\n\nExemplo: 12345678910, 2345\n\n0 - Voltar ao menu principal`,
-  CPF_INVALIDO: `❌ CPF inválido. Por favor, informe um CPF com 11 dígitos.\n\nExemplo: 12345678910, 2345\n\n0 - Voltar ao menu principal`,
-  TELEFONE_INVALIDO: `❌ Telefone inválido. Por favor, informe os últimos 4 dígitos do telefone.\n\nExemplo: 12345678910, 2345\n\n0 - Voltar ao menu principal`,
+export const ErrorMessages = {  CPF_INVALIDO: `❌ CPF inválido. Por favor, informe um CPF com 11 dígitos.\n\nExemplo: 12345678910\n\n0 - Voltar ao menu principal`,
   MATRICULA_NAO_ENCONTRADA: `❌ Não encontramos sua matrícula com os dados informados.\n\nPor favor, verifique:\n- CPF digitado corretamente\n- Número de telefone informado é o que está cadastrado na instituição\n\nDeseja tentar novamente?\n1 - Sim\n0 - Voltar ao menu principal`,
   ERRO_CONSULTA: `❌ Ocorreu um erro ao consultar sua matrícula. Por favor, tente novamente mais tarde.`,
   ERRO_PROCESSAMENTO: `❌ Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente mais tarde.`,

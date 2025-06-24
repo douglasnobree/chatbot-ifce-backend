@@ -14,6 +14,7 @@ import { ProtocoloService } from './services/protocolo.service';
 import { ValidacaoService } from './services/validacao.service';
 import { NotificacoesService } from './services/notificacoes.service';
 import { EstatisticasService } from './services/estatisticas-db.service';
+import { CSVMatriculasService } from './services/csv-matriculas.service';
 
 // Handlers
 import { MainMenuHandler } from './handlers/main-menu.handler';
@@ -46,13 +47,13 @@ import { EstatisticasController } from './controllers/estatisticas.controller';
     MessageService,
     UserDataService,
     WhatsAppSessionService,
-    MensagensService,
-    OperacoesBaseService,
+    MensagensService,    OperacoesBaseService,
     HandlersFactory,
     ProtocoloService,
     ValidacaoService,
     NotificacoesService,
     EstatisticasService,
+    CSVMatriculasService,
 
     // Handlers
     MainMenuHandler,
@@ -68,8 +69,7 @@ import { EstatisticasController } from './controllers/estatisticas.controller';
     RegistroDocumentosHandler,
     ProcessosAcompanhamentoHandler,
     AtendimentoGateway,
-  ],
-  exports: [
+  ],  exports: [
     ChatbotService,
     SessionService,
     MessageService,
@@ -79,6 +79,7 @@ import { EstatisticasController } from './controllers/estatisticas.controller';
     ValidacaoService,
     NotificacoesService,
     EstatisticasService,
+    CSVMatriculasService,
   ],
 })
 export class ChatbotModule {}
