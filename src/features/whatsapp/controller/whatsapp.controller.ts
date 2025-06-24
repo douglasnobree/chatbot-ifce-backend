@@ -199,13 +199,13 @@ export class WhatsappController {
       externalAttributes,
     } = req.body;
 
-    if (!number) {
-      // Remover o arquivo se os dados forem inválidos
-      fs.unlink(file.path, (err) => {
-        if (err) console.error('Erro ao remover arquivo temporário:', err);
-      });
-      throw new BadRequestException('Número de telefone é obrigatório');
-    }
+    // if (!number) {
+    //   // Remover o arquivo se os dados forem inválidos
+    //   fs.unlink(file.path, (err) => {
+    //     if (err) console.error('Erro ao remover arquivo temporário:', err);
+    //   });
+    //   throw new BadRequestException('Número de telefone é obrigatório');
+    // }
 
     if (
       !mediatype ||
@@ -224,7 +224,7 @@ export class WhatsappController {
       const instanceName = await this.whatsappService.getInstanceName();
       const number =
         await this.whatsappService.getEstudantNumberByProtocolId(protocolId);
-      console.log(number);
+      console.log('PRINTANDO O NUMERO', number);
       const result = await this.whatsappService.sendMediaFile(
         instanceName.instanceName,
         {

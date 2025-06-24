@@ -649,7 +649,7 @@ export class WhatsappService implements OnModuleInit {
 
     try {
       const protocolo = await this.PrismaService.protocolo.findUnique({
-        where: { numero: protocolId },
+        where: { id: protocolId },
         include: {
           estudante: {
             select: {
